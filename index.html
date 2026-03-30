@@ -160,7 +160,7 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
   <div id="left-panel">
     <div id="svg-wrap">
       <div id="tool-bar">
-        <button class="tool-btn active" data-tool="select" title="Select (V)">&#8630;</button>
+        <button class="tool-btn active" data-tool="select" title="Select (V)">⊹</button>
         <button class="tool-btn" data-tool="pen" title="Pen (P)">&#9998;</button>
         <button class="tool-btn" data-tool="rect" title="Rect (R)">&#9645;</button>
         <button class="tool-btn" data-tool="circle" title="Circle (C)">&#9711;</button>
@@ -232,8 +232,6 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
           <h4>Render</h4>
           <div class="rgrp">
             <button class="rbtn active" data-rm="0">Flat</button>
-            <button class="rbtn" data-rm="1">Lace</button>
-            <button class="rbtn" data-rm="2">Emboss</button>
             <button class="rbtn" data-rm="3">Weave</button>
           </div>
         </div>
@@ -241,8 +239,15 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
           <h4>Yarn Size</h4>
           <div class="row">
             <label>Size</label>
-            <input type="range" id="yarn-sz" min="4" max="24" value="10">
+            <input type="range" id="yarn-sz" min="4" max="28" value="10">
             <span id="yarn-lbl" style="color:var(--txt);margin-left:4px;min-width:18px">10</span>
+          </div>
+          <h4 style="margin-top:8px;">Weave Unit</h4>
+          <div class="rgrp" id="unit-btns">
+            <button class="rbtn active" data-unit="0" title="Plain weave (+ cross)">╬</button>
+            <button class="rbtn" data-unit="1" title="V shape">∨</button>
+            <button class="rbtn" data-unit="2" title="X diagonal">✕</button>
+            <button class="rbtn" data-unit="3" title="Herringbone">≋</button>
           </div>
         </div>
         <div class="ctrl-section">
@@ -255,8 +260,10 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
           <div class="row"><label>Ambient</label><input type="range" id="amb-sl" min="0" max="100" value="30"></div>
         </div>
         <div class="ctrl-section">
-          <h4>Background</h4>
+          <h4>Canvas Bg</h4>
           <input type="color" id="bg-col" value="#f0ede8">
+          <h4 style="margin-top:8px;">Preview Bg</h4>
+          <input type="color" id="preview-bg-col" value="#e8e4de">
         </div>
       </div>
     </div>
@@ -285,8 +292,9 @@ var tileMode=0;
 var tileCnt=3;
 var renderMode=0;
 var yarnSz=10;
+var weaveUnit=0;
 var gridOv=false;
-var bgColor=[0.055,0.055,0.094];
+var bgColor=[0.941,0.929,0.910];
 var lightXY=[0.5,0.5];
 var lightH=0.6;
 var lightI=1.0;
@@ -509,7 +517,7 @@ function cancelPen(){
 // ── Mouse events ──
 svgEl.addEventListener('mousedown',function(e){
   if(e.button!==0) return;
-  e.preventDefault();
+  if(currentTool!=='text') e.preventDefault();
   var p=svgPt(e);
   var sx=snap(p.x), sy=snap(p.y);
   isDragging=true;
@@ -814,6 +822,7 @@ uniform vec3 uLightDir;
 uniform float uLI;
 uniform float uAmb;
 uniform float uYarnSz;
+uniform int uWeaveUnit;
 uniform bool uGridOv;
 
 vec2 tileUV(vec2 uv){
@@ -885,14 +894,43 @@ void main(){
 
     // ellipse SDFs: warp=vertical, weft=horizontal
     vec2 w=within-0.5;
-    float warpSDF=length(vec2(w.x*2.2,w.y*1.0))-0.45;
-    float weftSDF=length(vec2(w.x*1.0,w.y*2.2))-0.45;
+    float warpSDF, weftSDF;
+    vec3 warpNorm, weftNorm;
+
+    if(uWeaveUnit==1){
+      // V shape: warp yarn bends into V (like chevron stitch)
+      // warp: two diagonal tubes meeting at bottom
+      float vy=abs(w.x)-abs(w.y)*0.7;
+      warpSDF=length(vec2(vy*1.8,w.y*1.0))-0.38;
+      weftSDF=length(vec2(w.x*1.0,w.y*2.2))-0.45;
+      warpNorm=normalize(vec3(sign(w.x)*1.5,0,0.5));
+      weftNorm=normalize(vec3(0,w.y*2.2,sqrt(max(0.0,0.2025-w.y*w.y*4.84))));
+    } else if(uWeaveUnit==2){
+      // X diagonal: yarns run at 45 degrees
+      float d1=abs(w.x-w.y)*1.4;
+      float d2=abs(w.x+w.y)*1.4;
+      warpSDF=d1-0.38;
+      weftSDF=d2-0.38;
+      warpNorm=normalize(vec3(1,1,0.8));
+      weftNorm=normalize(vec3(1,-1,0.8));
+    } else if(uWeaveUnit==3){
+      // Herringbone: alternating diagonal
+      float dir=mod(col,2.0)<1.0?1.0:-1.0;
+      float hd=abs(w.x-w.y*dir)*1.4;
+      warpSDF=hd-0.38;
+      weftSDF=length(vec2(w.x*2.4,w.y*1.0))-0.38;
+      warpNorm=normalize(vec3(1,dir,0.7));
+      weftNorm=normalize(vec3(w.x*2.4,0,0.5));
+    } else {
+      // Plain weave (default): warp=vertical ellipse, weft=horizontal ellipse
+      warpSDF=length(vec2(w.x*2.2,w.y*1.0))-0.45;
+      weftSDF=length(vec2(w.x*1.0,w.y*2.2))-0.45;
+      warpNorm=normalize(vec3(w.x*2.2,0,sqrt(max(0.0,0.2025-w.x*w.x*4.84))));
+      weftNorm=normalize(vec3(0,w.y*2.2,sqrt(max(0.0,0.2025-w.y*w.y*4.84))));
+    }
+
     bool inWarp=warpSDF<0.0;
     bool inWeft=weftSDF<0.0;
-
-    // cylindrical normals
-    vec3 warpNorm=normalize(vec3(w.x*2.2,0,sqrt(max(0.0,0.2025-w.x*w.x*4.84))));
-    vec3 weftNorm=normalize(vec3(0,w.y*2.2,sqrt(max(0.0,0.2025-w.y*w.y*4.84))));
     vec3 ld=normalize(uLightDir);
     float warpDiff=max(0.0,dot(warpNorm,ld));
     float weftDiff=max(0.0,dot(weftNorm,ld));
@@ -1030,6 +1068,7 @@ function renderGL(){
   gl.uniform1f(u('uLI'),lightI);
   gl.uniform1f(u('uAmb'),lightAmb);
   gl.uniform1f(u('uYarnSz'),yarnSz);
+  gl.uniform1i(u('uWeaveUnit'),weaveUnit);
   gl.uniform1i(u('uGridOv'),gridOv?1:0);
   gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
 }
@@ -1094,12 +1133,22 @@ document.getElementById('grid-ov').addEventListener('change',function(){
 });
 
 // ── Render mode ──
-document.querySelectorAll('.rbtn').forEach(function(b){
+document.querySelectorAll('.rbtn[data-rm]').forEach(function(b){
   b.addEventListener('click',function(){
     renderMode=parseInt(this.dataset.rm);
-    document.querySelectorAll('.rbtn').forEach(function(x){ x.classList.remove('active'); });
+    document.querySelectorAll('.rbtn[data-rm]').forEach(function(x){ x.classList.remove('active'); });
     this.classList.add('active');
     document.getElementById('yarn-row').style.display=renderMode===3?'block':'none';
+    renderGL();
+  });
+});
+
+// Weave unit buttons
+document.querySelectorAll('.rbtn[data-unit]').forEach(function(b){
+  b.addEventListener('click',function(){
+    weaveUnit=parseInt(this.dataset.unit);
+    document.querySelectorAll('.rbtn[data-unit]').forEach(function(x){ x.classList.remove('active'); });
+    this.classList.add('active');
     renderGL();
   });
 });
@@ -1109,6 +1158,11 @@ document.getElementById('yarn-sz').addEventListener('input',function(){
   yarnSz=parseInt(this.value);
   document.getElementById('yarn-lbl').textContent=this.value;
   renderGL();
+});
+
+// Preview background color
+document.getElementById('preview-bg-col').addEventListener('input',function(){
+  document.getElementById('gl-wrap').style.background=this.value;
 });
 
 // ── Light globe ──
