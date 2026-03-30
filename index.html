@@ -92,8 +92,11 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute;pointer-events:no
   overflow:hidden;
 }
 #gl-canvas{
-  display:block;width:100%;height:100%;
-  image-rendering:pixelated;
+  display:block;
+  width:auto;height:auto;
+  max-width:100%;max-height:100%;
+  aspect-ratio:1/1;
+  image-rendering:auto;
 }
 /* controls panel */
 #ctrl-panel{
@@ -165,6 +168,7 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
         <button class="tool-btn" data-tool="brush" title="Brush (B)">&#9998;</button>
         <button class="tool-btn" data-tool="fill" title="Fill (F)">&#9724;</button>
         <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)">&#128449;</button>
+        <button class="tool-btn" data-tool="text" title="Text (T)">T</button>
       </div>
       <svg id="svg-canvas" viewBox="0 0 512 512" preserveAspectRatio="xMidYMid meet"
            xmlns="http://www.w3.org/2000/svg">
@@ -178,6 +182,12 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
           <g id="sel-handles" style="pointer-events:none"></g>
         </g>
       </svg>
+      <!-- Text input overlay -->
+      <div id="text-overlay" style="display:none;position:absolute;z-index:20;pointer-events:none;">
+        <input id="text-input" type="text" placeholder="Type text…"
+          style="pointer-events:all;background:#1a1a2e;color:#e0d8f8;border:1.5px solid #7050c0;
+                 border-radius:4px;padding:3px 7px;font-size:14px;outline:none;min-width:120px;">
+      </div>
     </div>
     <div id="color-bar">
       <div class="swatch" id="fg-swatch" style="background:#c8c0e0" title="Fill color"></div>
@@ -186,6 +196,14 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
       <input type="color" id="stroke-picker" value="#7050c0">
       <label>W<input type="range" id="sw-slider" min="1" max="20" value="2"></label>
       <label class="chk" title="Toggle fill"><input type="checkbox" id="fill-toggle" checked> Fill</label>
+      <div class="sep-v" style="background:var(--bdr);width:1px;height:16px;margin:0 4px;"></div>
+      <label style="color:var(--txt2);">Size</label>
+      <input type="range" id="font-sz" min="8" max="120" value="32" style="width:60px;accent-color:var(--acc);">
+      <select id="font-style" style="background:var(--btn);color:var(--txt);border:1px solid var(--bdr);border-radius:3px;font-size:10px;padding:1px 3px;">
+        <option value="normal">Regular</option>
+        <option value="bold">Bold</option>
+        <option value="italic">Italic</option>
+      </select>
     </div>
   </div>
 
@@ -342,7 +360,7 @@ document.querySelectorAll('.tool-btn').forEach(function(b){
 // Keyboard shortcuts
 document.addEventListener('keydown',function(e){
   if(e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
-  var map={v:'select',p:'pen',r:'rect',c:'circle',l:'line',b:'brush',f:'fill',i:'eyedropper'};
+  var map={v:'select',p:'pen',r:'rect',c:'circle',l:'line',b:'brush',f:'fill',i:'eyedropper',t:'text'};
   var t=map[e.key.toLowerCase()];
   if(t){
     currentTool=t;
@@ -584,6 +602,46 @@ svgEl.addEventListener('mousedown',function(e){
         document.getElementById('fg-swatch').style.background=f2;
       }
     }
+    isDragging=false;
+
+  } else if(currentTool==='text'){
+    // Place text input overlay at click position
+    var svgR=svgEl.getBoundingClientRect();
+    var ov=document.getElementById('text-overlay');
+    var inp=document.getElementById('text-input');
+    var pct_x=(e.clientX-svgR.left)/svgR.width*100;
+    var pct_y=(e.clientY-svgR.top)/svgR.height*100;
+    ov.style.left=pct_x+'%'; ov.style.top=pct_y+'%';
+    ov.style.display='block'; ov.style.pointerEvents='none';
+    inp.style.pointerEvents='all';
+    inp.value=''; inp.focus();
+    // commit on Enter or blur
+    function commitText(){
+      var txt=inp.value.trim();
+      if(txt){
+        var fs=parseInt(document.getElementById('font-sz').value)||32;
+        var fw=document.getElementById('font-style').value||'normal';
+        var tel=document.createElementNS(NS,'text');
+        tel.setAttribute('x', snap(p.x));
+        tel.setAttribute('y', snap(p.y));
+        tel.setAttribute('fill', fgCol);
+        tel.setAttribute('font-size', fs);
+        tel.setAttribute('font-family','system-ui,sans-serif');
+        tel.setAttribute('font-weight', fw==='bold'?'bold':'normal');
+        tel.setAttribute('font-style', fw==='italic'?'italic':'normal');
+        tel.textContent=txt;
+        addEl(tel,'text');
+      }
+      ov.style.display='none';
+      inp.removeEventListener('keydown',onKey);
+      inp.removeEventListener('blur',commitText);
+    }
+    function onKey(ev){
+      if(ev.key==='Enter'){ ev.preventDefault(); commitText(); }
+      if(ev.key==='Escape'){ ov.style.display='none'; inp.removeEventListener('keydown',onKey); inp.removeEventListener('blur',commitText); }
+    }
+    inp.addEventListener('keydown',onKey);
+    inp.addEventListener('blur',commitText);
     isDragging=false;
   }
 });
