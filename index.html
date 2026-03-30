@@ -907,14 +907,8 @@ function hexCol(h){
 
 function renderGL(){
   if(!gl||!prog) return;
-  var dpr=Math.min(window.devicePixelRatio||1,2);
-  // Use glCanvas's own layout size (flex:1, sized by CSS)
-  var w=Math.max(1,glCanvas.clientWidth|0);
-  var h=Math.max(1,glCanvas.clientHeight|0);
-  var pw=w*dpr|0, ph=h*dpr|0;
-  if(glCanvas.width!==pw||glCanvas.height!==ph){
-    glCanvas.width=pw; glCanvas.height=ph;
-  }
+  var pw=glCanvas.width, ph=glCanvas.height;
+  if(pw<1||ph<1) return;
   gl.viewport(0,0,pw,ph);
   gl.useProgram(prog);
   gl.bindVertexArray(vao);
@@ -1022,8 +1016,19 @@ document.getElementById("shadow-col").addEventListener("input",function(){ shado
 })();
 
 // ── resize ──
-var resizeObs=new ResizeObserver(function(){ renderGL(); });
-resizeObs.observe(previewWrap);
+var resizeObs=new ResizeObserver(function(entries){
+  for(var entry of entries){
+    var cr=entry.contentRect;
+    var dpr=Math.min(window.devicePixelRatio||1,2);
+    var pw=Math.max(1,cr.width*dpr|0), ph=Math.max(1,cr.height*dpr|0);
+    if(glCanvas.width!==pw||glCanvas.height!==ph){
+      glCanvas.width=pw; glCanvas.height=ph;
+    }
+    glCanvas.style.width=cr.width+'px'; glCanvas.style.height=cr.height+'px';
+  }
+  renderGL();
+});
+resizeObs.observe(glCanvas);
 
 // ── init ──
 initGL();
