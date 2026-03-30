@@ -7,9 +7,9 @@
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
-  --bg:#0e0e18;--pl:#111120;--pr:#0a0a14;--hdr:#090912;
-  --bdr:#252535;--acc:#7050c0;--txt:#c8c0e0;--txt2:#6060a0;
-  --btn:#1a1a28;--bth:#252538;
+  --bg:#f0ede8;--pl:#f5f3ef;--pr:#ece9e3;--hdr:#e8e5df;
+  --bdr:#d0ccc4;--acc:#6040b0;--txt:#1a1a1a;--txt2:#707070;
+  --btn:#e0ddd8;--bth:#d4d1cb;
 }
 html,body{height:100%;background:var(--bg);color:var(--txt);font:11px/1.4 system-ui,sans-serif;overflow:hidden}
 /* ── Topbar ── */
@@ -120,7 +120,7 @@ input[type=color]{width:0;height:0;opacity:0;position:absolute;pointer-events:no
 #light-globe-wrap{display:flex;justify-content:center;margin:6px 0}
 #light-globe{
   width:60px;height:60px;border-radius:50%;
-  background:radial-gradient(circle at 40% 40%,#3a2a6a,#0e0e18);
+  background:radial-gradient(circle at 40% 40%,#d0c8e8,#b8b0d0);
   border:1px solid var(--bdr);cursor:crosshair;position:relative;
 }
 #globe-dot{
@@ -160,19 +160,18 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
   <div id="left-panel">
     <div id="svg-wrap">
       <div id="tool-bar">
-        <button class="tool-btn active" data-tool="select" title="Select (V)">&#9654;</button>
+        <button class="tool-btn active" data-tool="select" title="Select (V)">&#8630;</button>
         <button class="tool-btn" data-tool="pen" title="Pen (P)">&#9998;</button>
         <button class="tool-btn" data-tool="rect" title="Rect (R)">&#9645;</button>
         <button class="tool-btn" data-tool="circle" title="Circle (C)">&#9711;</button>
         <button class="tool-btn" data-tool="line" title="Line (L)">/</button>
         <button class="tool-btn" data-tool="brush" title="Brush (B)">&#9998;</button>
         <button class="tool-btn" data-tool="fill" title="Fill (F)">&#9724;</button>
-        <button class="tool-btn" data-tool="eyedropper" title="Eyedropper (I)">&#128449;</button>
         <button class="tool-btn" data-tool="text" title="Text (T)">T</button>
       </div>
       <svg id="svg-canvas" viewBox="0 0 512 512" preserveAspectRatio="xMidYMid meet"
            xmlns="http://www.w3.org/2000/svg">
-        <rect id="bg-rect" x="0" y="0" width="512" height="512" fill="#0e0e18"/>
+        <rect id="bg-rect" x="0" y="0" width="512" height="512" fill="#f0ede8"/>
         <g id="grid-layer" style="pointer-events:none"></g>
         <g id="drawing-layer">
           <path id="pen-preview" fill="none" stroke="#7050c0" stroke-width="1.5"
@@ -183,10 +182,10 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
         </g>
       </svg>
       <!-- Text input overlay -->
-      <div id="text-overlay" style="display:none;position:absolute;z-index:20;pointer-events:none;">
-        <input id="text-input" type="text" placeholder="Type text…"
-          style="pointer-events:all;background:#1a1a2e;color:#e0d8f8;border:1.5px solid #7050c0;
-                 border-radius:4px;padding:3px 7px;font-size:14px;outline:none;min-width:120px;">
+      <div id="text-overlay" style="display:none;position:absolute;z-index:30;">
+        <input id="text-input" type="text" placeholder="Type + Enter"
+          style="background:#fff;color:#1a1a1a;border:2px solid #6040b0;
+                 border-radius:4px;padding:4px 8px;font-size:14px;outline:none;min-width:120px;box-shadow:0 2px 8px rgba(0,0,0,0.15);">
       </div>
     </div>
     <div id="color-bar">
@@ -257,7 +256,7 @@ input[type=color]#bg-col{width:100%;height:24px;border-radius:4px;border:1px sol
         </div>
         <div class="ctrl-section">
           <h4>Background</h4>
-          <input type="color" id="bg-col" value="#0e0e18">
+          <input type="color" id="bg-col" value="#f0ede8">
         </div>
       </div>
     </div>
@@ -603,46 +602,6 @@ svgEl.addEventListener('mousedown',function(e){
       }
     }
     isDragging=false;
-
-  } else if(currentTool==='text'){
-    // Place text input overlay at click position
-    var svgR=svgEl.getBoundingClientRect();
-    var ov=document.getElementById('text-overlay');
-    var inp=document.getElementById('text-input');
-    var pct_x=(e.clientX-svgR.left)/svgR.width*100;
-    var pct_y=(e.clientY-svgR.top)/svgR.height*100;
-    ov.style.left=pct_x+'%'; ov.style.top=pct_y+'%';
-    ov.style.display='block'; ov.style.pointerEvents='none';
-    inp.style.pointerEvents='all';
-    inp.value=''; inp.focus();
-    // commit on Enter or blur
-    function commitText(){
-      var txt=inp.value.trim();
-      if(txt){
-        var fs=parseInt(document.getElementById('font-sz').value)||32;
-        var fw=document.getElementById('font-style').value||'normal';
-        var tel=document.createElementNS(NS,'text');
-        tel.setAttribute('x', snap(p.x));
-        tel.setAttribute('y', snap(p.y));
-        tel.setAttribute('fill', fgCol);
-        tel.setAttribute('font-size', fs);
-        tel.setAttribute('font-family','system-ui,sans-serif');
-        tel.setAttribute('font-weight', fw==='bold'?'bold':'normal');
-        tel.setAttribute('font-style', fw==='italic'?'italic':'normal');
-        tel.textContent=txt;
-        addEl(tel,'text');
-      }
-      ov.style.display='none';
-      inp.removeEventListener('keydown',onKey);
-      inp.removeEventListener('blur',commitText);
-    }
-    function onKey(ev){
-      if(ev.key==='Enter'){ ev.preventDefault(); commitText(); }
-      if(ev.key==='Escape'){ ov.style.display='none'; inp.removeEventListener('keydown',onKey); inp.removeEventListener('blur',commitText); }
-    }
-    inp.addEventListener('keydown',onKey);
-    inp.addEventListener('blur',commitText);
-    isDragging=false;
   }
 });
 
@@ -729,6 +688,44 @@ svgEl.addEventListener('mouseup',function(e){
 
   } else if(currentTool==='select'&&selectedEl){
     schedTex();
+
+  } else if(currentTool==='text'){
+    var svgR=svgEl.getBoundingClientRect();
+    var ov=document.getElementById('text-overlay');
+    var inp=document.getElementById('text-input');
+    // position overlay in % relative to svg-wrap
+    var pct_x=(e.clientX-svgR.left)/svgR.width*100;
+    var pct_y=(e.clientY-svgR.top)/svgR.height*100;
+    ov.style.left=pct_x+'%'; ov.style.top=pct_y+'%';
+    ov.style.display='block';
+    inp.value=''; inp.focus();
+    var textPos={x:svgPt(e).x, y:svgPt(e).y};
+    function commitText(){
+      var txt=inp.value.trim();
+      if(txt){
+        var fs=parseInt(document.getElementById('font-sz').value)||32;
+        var fw=document.getElementById('font-style').value||'normal';
+        var tel=document.createElementNS(NS,'text');
+        tel.setAttribute('x', snap(textPos.x));
+        tel.setAttribute('y', snap(textPos.y));
+        tel.setAttribute('fill', fgCol);
+        tel.setAttribute('font-size', fs);
+        tel.setAttribute('font-family','system-ui,sans-serif');
+        tel.setAttribute('font-weight', fw==='bold'?'bold':'normal');
+        tel.setAttribute('font-style', fw==='italic'?'italic':'normal');
+        tel.textContent=txt;
+        addEl(tel,'text');
+      }
+      ov.style.display='none';
+      inp.removeEventListener('keydown',onTKey);
+      inp.removeEventListener('blur',commitText);
+    }
+    function onTKey(ev){
+      if(ev.key==='Enter'){ ev.preventDefault(); commitText(); }
+      if(ev.key==='Escape'){ ov.style.display='none'; inp.removeEventListener('keydown',onTKey); inp.removeEventListener('blur',commitText); }
+    }
+    inp.addEventListener('keydown',onTKey);
+    inp.addEventListener('blur',commitText);
   }
 });
 
@@ -765,7 +762,7 @@ function getCleanSVG(){
   });
   var inner=children.map(function(c){ return c.outerHTML; }).join('\n');
   return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">\n'+
-    '<rect width="512" height="512" fill="#0e0e18"/>\n'+inner+'\n</svg>';
+    '<rect width="512" height="512" fill="#f0ede8"/>\n'+inner+'\n</svg>';
 }
 
 document.getElementById('btn-export-svg').addEventListener('click',function(){
@@ -1051,7 +1048,7 @@ function rebuildTex(){
   });
   var inner=children.map(function(c){ return c.outerHTML; }).join('\n');
   var svgStr='<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">'+
-    '<rect width="512" height="512" fill="#0e0e18"/>'+inner+'</svg>';
+    '<rect width="512" height="512" fill="#f0ede8"/>'+inner+'</svg>';
   var blob=new Blob([svgStr],{type:'image/svg+xml'});
   var url=URL.createObjectURL(blob);
   var img=new Image();
