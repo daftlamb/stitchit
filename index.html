@@ -886,12 +886,9 @@ void main(){
 
     vec2 warpCenter=(cell+0.5)*ys/uRes;
     vec2 weftCenter=(cell+0.5)*ys/uRes;
-    vec4 warpTex=texture(uTex,tileUV(warpCenter));
-    vec4 weftTex=texture(uTex,tileUV(weftCenter));
-    // Use full tex color where there's content; neutral yarn color where bg
-    vec3 yarnBase=uBg*0.92+vec3(0.04); // slightly darker neutral yarn
-    vec3 warpCol=warpTex.a>0.05 ? warpTex.rgb : yarnBase;
-    vec3 weftCol=weftTex.a>0.05 ? weftTex.rgb : yarnBase;
+    // Since texture is always opaque (bg pre-filled), just use rgb directly
+    vec3 warpCol=texture(uTex,tileUV(warpCenter)).rgb;
+    vec3 weftCol=texture(uTex,tileUV(weftCenter)).rgb;
 
     // ellipse SDFs: warp=vertical, weft=horizontal
     vec2 w=within-0.5;
@@ -968,7 +965,7 @@ void main(){
 
   } else {
     vec4 texColor=texture(uTex,tuv);
-    vec3 base=mix(uBg,texColor.rgb,texColor.a);
+    vec3 base=texColor.rgb; // texture is always opaque (bg pre-filled)
 
     if(uRenderMode==0){
       // Flat
@@ -1056,6 +1053,8 @@ function initGL(){
 function uploadTex(){
   if(!gl||!glTex) return;
   gl.bindTexture(gl.TEXTURE_2D,glTex);
+  gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL,false);
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,texCanvas);
 }
 
@@ -1101,7 +1100,10 @@ function rebuildTex(){
   var url=URL.createObjectURL(blob);
   var img=new Image();
   img.onload=function(){
-    texCtx.clearRect(0,0,512,512);
+    // Fill with opaque bg first to avoid premultiplied alpha issues
+    var bgHex=document.getElementById('bg-col').value||'#f0ede8';
+    texCtx.fillStyle=bgHex;
+    texCtx.fillRect(0,0,512,512);
     texCtx.drawImage(img,0,0,512,512);
     uploadTex();
     renderGL();
