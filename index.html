@@ -23,8 +23,8 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 .tbtn.acc{background:var(--acc);border-color:var(--acc);color:#fff}
 #main{display:flex;height:calc(100vh - 38px)}
 #left-panel{width:420px;min-width:280px;flex-shrink:0;background:var(--pl);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:relative}
-#svg-wrap{flex:1;position:relative;overflow:hidden}
-#svg-canvas{display:block;width:100%;height:100%}
+#svg-wrap{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--pl);}
+#svg-canvas{display:block;max-width:100%;max-height:100%;aspect-ratio:1/1;}
 #tool-bar{position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;background:#13132288;backdrop-filter:blur(6px);border:1px solid var(--bdr);border-radius:8px;padding:6px 4px;z-index:10}
 .tool-btn{width:30px;height:30px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--txt);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .1s}
 .tool-btn:hover{background:var(--bth)}
@@ -82,10 +82,11 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
     <div id="svg-wrap">
       <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
         <g id="grid-layer" style="pointer-events:none"></g>
-        <g id="drawing-layer"></g>
-        <path id="pen-preview" fill="none" stroke="#8060d0" stroke-width="1.5" stroke-dasharray="5,3" style="pointer-events:none"/>
-        <rect id="sel-rect" fill="none" stroke="#8060d0" stroke-width="1.5" stroke-dasharray="4,3" style="pointer-events:none;display:none"/>
-        <g id="sel-handles" style="pointer-events:none"></g>
+        <g id="drawing-layer">
+          <path id="pen-preview" fill="none" stroke="#8060d0" stroke-width="1.5" stroke-dasharray="5,3" style="pointer-events:none"/>
+          <rect id="sel-rect" fill="none" stroke="#8060d0" stroke-width="1.5" stroke-dasharray="4,3" style="pointer-events:none;display:none"/>
+          <g id="sel-handles" style="pointer-events:none"></g>
+        </g>
       </svg>
       <div id="tool-bar">
         <button class="tool-btn active" data-tool="select" title="Select (V)">⊹</button>
@@ -237,9 +238,10 @@ function snapP(p){ return {x:snapV(p.x), y:snapV(p.y)}; }
 // ── svg coord ──
 function svgPt(e){
   var r=svgEl.getBoundingClientRect();
-  var sx=512/r.width, sy=512/r.height;
-  var cx=e.clientX, cy=e.clientY;
-  return {x:(cx-r.left)*sx, y:(cy-r.top)*sy};
+  // Map screen pixels → SVG viewBox (0 0 512 512)
+  var x=(e.clientX-r.left)/r.width*512;
+  var y=(e.clientY-r.top)/r.height*512;
+  return {x:x, y:y};
 }
 
 // ── tools ──
@@ -838,7 +840,7 @@ void main(){
     float n=float(uTileCnt);
     vec2 gv=abs(fract(vUV*n)-.5);
     float gl2=min(gv.x,gv.y);
-    float gline=smoothstep(0.02,0.0,gl2);
+    float gline=smoothstep(0.008,0.0,gl2);
     fragColor.rgb=mix(fragColor.rgb,vec3(1),gline*0.25);
   }
 }`;
@@ -903,9 +905,17 @@ function hexCol(h){
 
 function renderGL(){
   if(!gl||!prog) return;
-  var w=glCanvas.clientWidth, h=glCanvas.clientHeight;
-  if(glCanvas.width!==w||glCanvas.height!==h){ glCanvas.width=w; glCanvas.height=h; }
-  gl.viewport(0,0,w,h);
+  var dpr=Math.min(window.devicePixelRatio||1,2);
+  var r=glCanvas.parentElement.getBoundingClientRect();
+  var rw=document.getElementById("right-controls");
+  var ctrlW=rw?rw.offsetWidth:176;
+  var w=Math.max(1,(r.width-ctrlW)|0), h=Math.max(1,r.height|0);
+  var pw=w*dpr|0, ph=h*dpr|0;
+  if(glCanvas.width!==pw||glCanvas.height!==ph){
+    glCanvas.width=pw; glCanvas.height=ph;
+    glCanvas.style.width=w+'px'; glCanvas.style.height=h+'px';
+  }
+  gl.viewport(0,0,pw,ph);
   gl.useProgram(prog);
   gl.bindVertexArray(vao);
   gl.activeTexture(gl.TEXTURE0);
