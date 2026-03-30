@@ -24,7 +24,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #main{display:flex;height:calc(100vh - 38px)}
 #left-panel{width:420px;min-width:280px;flex-shrink:0;background:var(--pl);border-right:1px solid var(--bdr);display:flex;flex-direction:column;position:relative}
 #svg-wrap{flex:1;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;background:var(--pl);}
-#svg-canvas{display:block;max-width:100%;max-height:100%;aspect-ratio:1/1;}
+#svg-canvas{display:block;max-width:100%;max-height:100%;aspect-ratio:1/1;cursor:crosshair;}
 #tool-bar{position:absolute;left:8px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:4px;background:#13132288;backdrop-filter:blur(6px);border:1px solid var(--bdr);border-radius:8px;padding:6px 4px;z-index:10}
 .tool-btn{width:30px;height:30px;border-radius:5px;border:1px solid transparent;background:transparent;color:var(--txt);cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:background .1s}
 .tool-btn:hover{background:var(--bth)}
@@ -82,6 +82,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
   <div id="left-panel">
     <div id="svg-wrap">
       <svg id="svg-canvas" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+        <rect id="bg-rect" x="0" y="0" width="512" height="512" fill="#0e0e18"/>
         <g id="grid-layer" style="pointer-events:none"></g>
         <g id="drawing-layer">
           <path id="pen-preview" fill="none" stroke="#8060d0" stroke-width="1.5" stroke-dasharray="5,3" style="pointer-events:none"/>
@@ -132,7 +133,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
         <canvas id="gl-canvas"></canvas>
       </div>
     </div>
-      <div id="right-controls">
+    <div id="right-controls">
         <div class="cs"><div class="ct">Render</div>
           <button class="mbtn active" data-rm="0">Flat</button>
           <button class="mbtn" data-rm="1">Lace</button>
@@ -1185,7 +1186,11 @@ document.getElementById("light-a").addEventListener("input",function(){ lightA=p
 
 // ── color inputs ──
 document.getElementById("thread-col").addEventListener("input",function(){ fgCol=this.value; updSwatches(); schedTex(); });
-document.getElementById("bg-col").addEventListener("input",function(){ renderGL(); });
+document.getElementById("bg-col").addEventListener("input",function(){
+  var bgRect=document.getElementById("bg-rect");
+  if(bgRect) bgRect.setAttribute("fill", this.value);
+  renderGL();
+});
 document.getElementById("shadow-col").addEventListener("input",function(){ shadowCol=hexCol(this.value); renderGL(); });
 
 // ── globe light control ──
