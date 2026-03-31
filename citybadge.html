@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>City Badge</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Major+Mono+Display&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
@@ -200,69 +200,39 @@ var morandiColors = [
 var CELL = 6; // px per grid cell
 
 // Draw a single cross-stitch × at grid position (col, row) given stamp origin (ox, oy)
-// type: 1 = normal stitch, 2 = border stitch (slightly thicker)
-function drawCross(col, row, ox, oy, type) {
-  // center of this cell in canvas coords
+// type: 1=outline/text, 2=border, 3=separator line
+// color: CSS color string
+function drawCross(col, row, ox, oy, type, color) {
   var baseCX = ox + col * CELL + CELL / 2;
   var baseCY = oy + row * CELL + CELL / 2;
-
-  // seeded wobble
   var wobbleAngle = Math.sin(col * 127.1 + row * 311.7) * 0.12;
   var wobbleX = Math.sin(col * 311.7 + row * 127.1) * 0.5;
   var wobbleY = Math.sin(col * 211.3 + row * 431.1) * 0.5;
   var cx = baseCX + wobbleX;
   var cy = baseCY + wobbleY;
-
-  var arm = CELL * 0.42;
-  // rotated arm endpoints
+  var arm = CELL * (type === 2 ? 0.46 : 0.40);
   var cosA = Math.cos(wobbleAngle), sinA = Math.sin(wobbleAngle);
+  var a1x = arm*0.7071*cosA - arm*0.7071*sinA;
+  var a1y = arm*0.7071*sinA + arm*0.7071*cosA;
+  var a2x = arm*0.7071*cosA - (-arm*0.7071)*sinA;
+  var a2y = arm*0.7071*sinA + (-arm*0.7071)*cosA;
+  var lw = type === 2 ? 2.2 : (type === 3 ? 1.4 : 1.8);
 
-  // arm1: direction (+1,+1) normalized, rotated
-  var a1x = (arm * 0.7071) * cosA - (arm * 0.7071) * sinA;
-  var a1y = (arm * 0.7071) * sinA + (arm * 0.7071) * cosA;
-  // arm2: direction (+1,-1) normalized, rotated
-  var a2x = (arm * 0.7071) * cosA - (-arm * 0.7071) * sinA;
-  var a2y = (arm * 0.7071) * sinA + (-arm * 0.7071) * cosA;
-
-  var lw1 = type === 2 ? 2.4 : 1.8;
-  var lw2 = type === 2 ? 1.2 : 0.8;
-
-  // Layer 1: shadow
+  // No shadow — just main + subtle highlight
   ctx.save();
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = lw1 + 1.0;
+  ctx.strokeStyle = color || 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = lw;
   ctx.lineCap = 'round';
   ctx.beginPath();
-  ctx.moveTo(cx - a1x + 1, cy - a1y + 1.5);
-  ctx.lineTo(cx + a1x + 1, cy + a1y + 1.5);
-  ctx.moveTo(cx - a2x + 1, cy - a2y + 1.5);
-  ctx.lineTo(cx + a2x + 1, cy + a2y + 1.5);
+  ctx.moveTo(cx-a1x, cy-a1y); ctx.lineTo(cx+a1x, cy+a1y);
+  ctx.moveTo(cx-a2x, cy-a2y); ctx.lineTo(cx+a2x, cy+a2y);
   ctx.stroke();
-  ctx.restore();
-
-  // Layer 2: main white
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
-  ctx.lineWidth = lw1;
-  ctx.lineCap = 'round';
+  // Highlight (lighter tint)
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+  ctx.lineWidth = lw * 0.45;
   ctx.beginPath();
-  ctx.moveTo(cx - a1x, cy - a1y);
-  ctx.lineTo(cx + a1x, cy + a1y);
-  ctx.moveTo(cx - a2x, cy - a2y);
-  ctx.lineTo(cx + a2x, cy + a2y);
-  ctx.stroke();
-  ctx.restore();
-
-  // Layer 3: highlight
-  ctx.save();
-  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
-  ctx.lineWidth = lw2;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(cx - a1x - 0.4, cy - a1y - 0.4);
-  ctx.lineTo(cx + a1x - 0.4, cy + a1y - 0.4);
-  ctx.moveTo(cx - a2x - 0.4, cy - a2y - 0.4);
-  ctx.lineTo(cx + a2x - 0.4, cy + a2y - 0.4);
+  ctx.moveTo(cx-a1x-0.4, cy-a1y-0.4); ctx.lineTo(cx+a1x-0.4, cy+a1y-0.4);
+  ctx.moveTo(cx-a2x-0.4, cy-a2y-0.4); ctx.lineTo(cx+a2x-0.4, cy+a2y-0.4);
   ctx.stroke();
   ctx.restore();
 }
@@ -415,6 +385,13 @@ function render(cityName, lat, lon, geojson) {
   var stampColor = 'hsl(' + mH + ',' + mS + '%,' + mL + '%)';
   var lLight = Math.min(100, mL + 4);
   var lDark  = Math.max(0, mL - 4);
+  // 3-color stitch system:
+  // color1 = bright white — city outline + text
+  // color2 = light tint — separator line
+  // color3 = darker same-hue — border frame
+  var color1 = 'rgba(255,255,255,0.96)';
+  var color2 = 'hsla(' + mH + ',' + mS + '%,' + Math.min(100,mL+30) + '%,0.9)';
+  var color3 = 'hsl(' + mH + ',' + Math.min(100,mS+10) + '%,' + Math.max(20,mL-25) + '%)';
 
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
@@ -473,7 +450,7 @@ function render(cityName, lat, lon, geojson) {
   // ── B. Rasterize city name text ──
   var displayName = cityName.toUpperCase();
   var fontSize = displayName.length > 14 ? 38 : displayName.length > 10 ? 46 : 56;
-  var textFont = '800 ' + fontSize + 'px Outfit,sans-serif';
+  var textFont = '400 ' + fontSize + 'px "Major Mono Display",monospace';
   var textCX = ox + stampW / 2;
   var textCY = oy + 72;
   rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy, '0.18em');
@@ -483,7 +460,7 @@ function render(cityName, lat, lon, geojson) {
   var lineRow = Math.floor((lineY - oy) / CELL);
   if(lineRow >= 0 && lineRow < ROWS){
     for(var lc = 2; lc < COLS-2; lc++){
-      if(grid[lineRow * COLS + lc] === 0) grid[lineRow * COLS + lc] = 1;
+      if(grid[lineRow * COLS + lc] === 0) grid[lineRow * COLS + lc] = 3;
     }
   }
 
@@ -498,18 +475,7 @@ function render(cityName, lat, lon, geojson) {
   ctx.fillStyle = '#e8e4de';
   ctx.fillRect(0, 0, W, H);
 
-  // Drop shadow under stamp
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.40)';
-  ctx.shadowBlur = 22;
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 8;
-  roundRect(ctx, ox, oy, stampW, stampH, cornerR);
-  ctx.fillStyle = stampColor;
-  ctx.fill();
-  ctx.restore();
-
-  // Stamp base fill + fabric texture (clipped to rounded rect)
+  // Stamp base fill (no drop shadow)
   ctx.save();
   roundRect(ctx, ox, oy, stampW, stampH, cornerR);
   ctx.clip();
@@ -540,7 +506,8 @@ function render(cityName, lat, lon, geojson) {
     for (var col = 0; col < COLS; col++) {
       var cellVal = grid[row * COLS + col];
       if (cellVal > 0) {
-        drawCross(col, row, ox, oy, cellVal);
+        var col3 = cellVal === 2 ? color3 : (cellVal === 3 ? color2 : color1);
+        drawCross(col, row, ox, oy, cellVal, col3);
       }
     }
   }
