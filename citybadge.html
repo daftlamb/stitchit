@@ -550,7 +550,7 @@ function render(cityName, lat, lon, geojson) {
   var absLat = Math.abs(lat).toFixed(1);
   var absLon = Math.abs(lon).toFixed(1);
   var coordStr = absLat + '°' + (lat >= 0 ? 'N' : 'S') + ' ' + absLon + '°' + (lon >= 0 ? 'E' : 'W');
-  var coordRow = ROWS - 4 - BF_H; // above inner border bottom
+  var coordRow = ROWS - 5 - BF_H; // above inner border bottom
   drawBitmapText(coordStr, grid, COLS, ROWS, Math.floor(COLS / 2), coordRow, 3);
 
   // ── D. Decorative lines (seeded, avoid text/map zone) ──
