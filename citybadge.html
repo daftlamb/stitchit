@@ -241,18 +241,14 @@ function render(cityName,lat,lon,geojson){
       shapeCmds=buildSmooth(mapped);
 
       ctx.save();
-      // Clip to circle AND above band line1
+      // Clip to circle
       ctx.beginPath();
       ctx.arc(CX,CY,IR,0,Math.PI*2);
       ctx.clip();
 
-      // Second clip: above the top band line (polygon mask)
+      // Second clip: above band line1 (use simple horizontal cut)
       ctx.beginPath();
-      ctx.moveTo(CX-bx, lineY(line1Y,CX-bx));
-      ctx.lineTo(CX+bx, lineY(line1Y,CX+bx));
-      ctx.lineTo(CX+bx, CY-IR-10);
-      ctx.lineTo(CX-bx, CY-IR-10);
-      ctx.closePath();
+      ctx.rect(CX-IR-10, CY-IR-10, (IR+10)*2, (line1Y-(CY-IR-10)));
       ctx.clip();
 
       // Random fill inside shape
