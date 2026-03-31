@@ -393,6 +393,24 @@ function render(cityName, lat, lon, geojson) {
   var color2 = 'hsla(' + mH + ',' + mS + '%,' + Math.min(100,mL+30) + '%,0.9)';
   var color3 = 'hsl(' + mH + ',' + Math.min(100,mS+10) + '%,' + Math.max(20,mL-25) + '%)';
 
+  // Pre-compute text lines (needed for textZoneH used in outline layout)
+  var displayName = cityName.toUpperCase();
+  var WRAP = 10;
+  var lines = [];
+  if (displayName.length > WRAP) {
+    var mid = Math.floor(displayName.length / 2);
+    var spaceIdx = -1;
+    for (var si = 0; si < displayName.length; si++) {
+      if (displayName[si] === ' ' && Math.abs(si - mid) < Math.abs((spaceIdx < 0 ? 9999 : spaceIdx) - mid)) spaceIdx = si;
+    }
+    lines = spaceIdx > 0 ? [displayName.slice(0, spaceIdx).trim(), displayName.slice(spaceIdx+1).trim()]
+                         : [displayName.slice(0, mid), displayName.slice(mid)];
+  } else {
+    lines = [displayName];
+  }
+  var fontSize = 34;
+  var lineHeight = fontSize + 14;
+
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
     var ring = [];
@@ -418,7 +436,7 @@ function render(cityName, lat, lon, geojson) {
       });
 
       // Target area: below text zone (top ~130px of stamp), centered
-      var textZoneH = 130; // px from stamp top
+      var textZoneH = 36 + lines.length * (fontSize + 14) + 24; // dynamic: text rows + separator gap
       var outlineAreaW = stampW * 0.72;
       var outlineAreaH = stampH - textZoneH - 20;
       var scX = outlineAreaW / (maxX - minX || 1);
@@ -448,39 +466,17 @@ function render(cityName, lat, lon, geojson) {
   }
 
   // ── B. Rasterize city name text ──
-  var displayName = cityName.toUpperCase();
-  // Wrap at 10 chars: split on space near midpoint, or force-split
-  var WRAP = 10;
-  var lines = [];
-  if (displayName.length > WRAP) {
-    // Try to split on a space
-    var mid = Math.floor(displayName.length / 2);
-    var spaceIdx = -1;
-    for (var si = 0; si < displayName.length; si++) {
-      if (displayName[si] === ' ' && Math.abs(si - mid) < Math.abs(spaceIdx - mid)) spaceIdx = si;
-    }
-    if (spaceIdx > 0) {
-      lines = [displayName.slice(0, spaceIdx).trim(), displayName.slice(spaceIdx+1).trim()];
-    } else {
-      // Force split at midpoint
-      lines = [displayName.slice(0, mid), displayName.slice(mid)];
-    }
-  } else {
-    lines = [displayName];
-  }
-
-  var fontSize = 34;
+    // ── B. Rasterize city name text (lines/fontSize pre-computed above) ──
   var textFont = '400 ' + fontSize + 'px "Press Start 2P",monospace';
   var textCX = ox + stampW / 2;
-  var lineHeight = fontSize + 14; // px between lines
   var totalH = lines.length * lineHeight;
-  var textStartY = oy + 58 - (lines.length > 1 ? lineHeight/2 : 0);
+  var textStartY = oy + 36;
   lines.forEach(function(line, li) {
     rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
   });
 
-  // Separator line below text block
-  var lineY = textStartY + totalH + 8;
+  // Separator line just below text block, centered
+  var lineY = textStartY + totalH + 10;
   var lineRow = Math.floor((lineY - oy) / CELL);
   if(lineRow >= 0 && lineRow < ROWS){
     for(var lc = 2; lc < COLS-2; lc++){
