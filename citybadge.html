@@ -286,16 +286,18 @@ function rasterizePath(pts, grid, COLS, ROWS, ox, oy, value) {
 }
 
 // ── Rasterize text onto grid via offscreen canvas ──
-function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy) {
+function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy, letterSpacing) {
   var tmp = document.createElement('canvas');
   var tmpCtx = tmp.getContext('2d');
   tmpCtx.font = font;
+  if(letterSpacing) tmpCtx.letterSpacing = letterSpacing;
   var met = tmpCtx.measureText(text);
-  var tw = Math.ceil(met.width) + 40;
-  var th = 120;
+  var tw = Math.ceil(met.width) + 80;
+  var th = 140;
   tmp.width = tw;
   tmp.height = th;
   tmpCtx.font = font;
+  if(letterSpacing) tmpCtx.letterSpacing = letterSpacing;
   tmpCtx.textAlign = 'center';
   tmpCtx.textBaseline = 'middle';
   tmpCtx.fillStyle = '#fff';
@@ -456,8 +458,17 @@ function render(cityName, lat, lon, geojson) {
   var fontSize = displayName.length > 14 ? 38 : displayName.length > 10 ? 46 : 56;
   var textFont = '800 ' + fontSize + 'px Outfit,sans-serif';
   var textCX = ox + stampW / 2;
-  var textCY = oy + 72; // 72px from stamp top
-  rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy);
+  var textCY = oy + 72;
+  rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy, '0.18em');
+
+  // ── Separator line below city name (full width, 1 cell thick) ──
+  var lineY = oy + 110; // pixels below stamp top
+  var lineRow = Math.floor((lineY - oy) / CELL);
+  if(lineRow >= 0 && lineRow < ROWS){
+    for(var lc = 2; lc < COLS-2; lc++){
+      if(grid[lineRow * COLS + lc] === 0) grid[lineRow * COLS + lc] = 1;
+    }
+  }
 
   // ── C. Rasterize border ring (2 cells thick) ──
   rasterizeBorder(grid, COLS, ROWS, 2);
