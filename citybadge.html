@@ -214,53 +214,72 @@ function render(cityName,lat,lon,geojson){
   // ── City outline (large, clipped, rounded joins) ──
   if(geojson) drawOutline(geojson,IR);
 
-  // ── Separator ──
-  var sepY=CY+IR*0.52;
+    // ── Diagonal band with city name ──
   ctx.save();
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  var sepG=ctx.createLinearGradient(CX-IR*0.6,sepY,CX+IR*0.6,sepY);
-  sepG.addColorStop(0,'rgba(255,255,255,0)');
-  sepG.addColorStop(0.5,'rgba(255,255,255,0.3)');
-  sepG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.beginPath(); ctx.moveTo(CX-IR*0.65,sepY); ctx.lineTo(CX+IR*0.65,sepY);
-  ctx.strokeStyle=sepG; ctx.lineWidth=1; ctx.stroke();
-  ctx.restore();
 
-  // ── City name ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  // Emboss: shadow below then light above
-  ctx.font='800 '+(cityName.length>10?21:cityName.length>7?25:29)+'px Outfit,sans-serif';
-  ctx.textAlign='center'; ctx.letterSpacing='0.14em';
-  ctx.fillStyle='rgba(0,0,0,0.55)';
-  ctx.fillText(cityName.toUpperCase(),CX,CY+IR*0.715+2);
-  ctx.fillStyle='rgba(255,255,255,0.12)';
-  ctx.fillText(cityName.toUpperCase(),CX,CY+IR*0.715-1);
-  ctx.fillStyle='#e8e4dc';
-  ctx.fillText(cityName.toUpperCase(),CX,CY+IR*0.715);
-  ctx.restore();
+  // Band geometry: two parallel diagonal lines across the badge
+  // Slant: slight angle, band center at bottom 35% of circle
+  var bandH=52;          // band height in px
+  var slant=0.18;        // tan of angle (rise/run)
+  var bandCY=CY+IR*0.42; // vertical center of band
 
-  // ── Coordinates ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
+  // Four corners of the band parallelogram (full width beyond IR)
+  var bx=IR*1.1;
+  var tl={x:CX-bx, y:bandCY - bandH/2 - bx*slant};
+  var tr={x:CX+bx, y:bandCY - bandH/2 + bx*slant};
+  var br={x:CX+bx, y:bandCY + bandH/2 + bx*slant};
+  var bl={x:CX-bx, y:bandCY + bandH/2 - bx*slant};
+
+  // Band fill — dark semi-transparent
+  ctx.beginPath();
+  ctx.moveTo(tl.x,tl.y); ctx.lineTo(tr.x,tr.y);
+  ctx.lineTo(br.x,br.y); ctx.lineTo(bl.x,bl.y);
+  ctx.closePath();
+  ctx.fillStyle='rgba(10,8,18,0.72)';
+  ctx.fill();
+
+  // Top edge line — silver
+  ctx.beginPath(); ctx.moveTo(tl.x,tl.y); ctx.lineTo(tr.x,tr.y);
+  var topG=ctx.createLinearGradient(tl.x,0,tr.x,0);
+  topG.addColorStop(0,'rgba(255,255,255,0)');
+  topG.addColorStop(0.15,'rgba(255,255,255,0.7)');
+  topG.addColorStop(0.85,'rgba(255,255,255,0.7)');
+  topG.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.strokeStyle=topG; ctx.lineWidth=1.5; ctx.stroke();
+
+  // Bottom edge line — silver
+  ctx.beginPath(); ctx.moveTo(bl.x,bl.y); ctx.lineTo(br.x,br.y);
+  ctx.strokeStyle=topG; ctx.lineWidth=1.5; ctx.stroke();
+
+  // City name — right aligned, embossed
+  var fontSize=cityName.length>12?19:cityName.length>8?23:28;
+  ctx.font='800 '+fontSize+'px Outfit,sans-serif';
+  ctx.textAlign='right';
+  ctx.letterSpacing='0.12em';
+  var nameX=CX+IR*0.82;
+  var nameY=bandCY + fontSize*0.36 + nameX*slant - CX*slant; // follow slant
+  // shadow
+  ctx.fillStyle='rgba(0,0,0,0.6)';
+  ctx.fillText(cityName.toUpperCase(), nameX, nameY+2);
+  // highlight
+  ctx.fillStyle='rgba(255,255,255,0.15)';
+  ctx.fillText(cityName.toUpperCase(), nameX, nameY-1);
+  // main
+  ctx.fillStyle='#f0eee8';
+  ctx.fillText(cityName.toUpperCase(), nameX, nameY);
+
+  // Coordinates — right aligned below name, inside band
   var latS=Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S');
   var lonS=Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
   ctx.font='600 11px Outfit,sans-serif';
-  ctx.textAlign='center'; ctx.letterSpacing='0.1em';
-  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillText(latS+'   '+lonS,CX,CY+IR*0.875+1);
-  ctx.fillStyle='rgba(200,196,188,0.7)'; ctx.fillText(latS+'   '+lonS,CX,CY+IR*0.875);
-  ctx.restore();
+  ctx.letterSpacing='0.08em';
+  var coordY=nameY+16;
+  ctx.fillStyle='rgba(0,0,0,0.4)';
+  ctx.fillText(latS+'  '+lonS, nameX, coordY+1);
+  ctx.fillStyle='rgba(210,206,198,0.65)';
+  ctx.fillText(latS+'  '+lonS, nameX, coordY);
 
-  // ── Dot row ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  for(var k=0;k<5;k++){
-    var dx2=CX-32+k*16, dy2=CY+IR*0.94;
-    ctx.beginPath(); ctx.arc(dx2,dy2,2.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(dx2,dy2-1,2.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(200,196,188,0.5)'; ctx.fill();
-  }
   ctx.restore();
 
   // ── Rim top highlight arc ──
