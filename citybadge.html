@@ -474,13 +474,8 @@ function render(cityName, lat, lon, geojson) {
 
       var shapeCmds = buildSmooth(mapped);
 
-      // Resample smooth path into dense point array for stitch rendering
+      // Resample smooth path into dense point array via CatmullRom
       var smoothPts = (function(){
-        var tmp2 = document.createElement('canvas');
-        tmp2.width = W; tmp2.height = H;
-        var tc2 = tmp2.getContext('2d');
-        applyPath2(tc2, shapeCmds);
-        // Use Path2D trick isn't available easily; do CatmullRom resample instead
         var pts = mapped;
         var out = [];
         var n = pts.length;
