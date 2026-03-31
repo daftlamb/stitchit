@@ -206,9 +206,9 @@ function render(cityName,lat,lon,geojson){
   // Two parallel lines: slight left-to-right upward slant, like sketch
   // Using straight diagonal lines (sketch shows nearly straight)
   var slant=0.13; // rise per unit x (positive = goes up left-to-right)
-  var bandGap=28;
+  var bandGap=46;
   // Band center Y
-  var bandCY=CY+IR*0.44;
+  var bandCY=CY+IR*0.64;
   // line1 = top of band, line2 = bottom
   var line1Y=bandCY-bandGap/2;
   var line2Y=bandCY+bandGap/2;
@@ -320,7 +320,7 @@ function render(cityName,lat,lon,geojson){
   var nameX=CX+IR*0.85;
   // Y center between the two lines at nameX
   var nameY=(lineY(line1Y,nameX)+lineY(line2Y,nameX))/2;
-  var fontSize=cityName.length>12?17:cityName.length>8?20:24;
+  var fontSize=cityName.length>12?20:cityName.length>8?24:28;
   nameY+=fontSize*0.36; // baseline offset
   ctx.font='800 '+fontSize+'px Outfit,sans-serif';
   ctx.textAlign='right'; ctx.letterSpacing='0.13em';
