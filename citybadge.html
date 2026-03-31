@@ -415,8 +415,8 @@ function render(cityName, lat, lon, geojson) {
   var mc = morandiColors[cidx];
   var mH = mc[0], mS = mc[1], mL = mc[2];
   var stampColor = 'hsl(' + mH + ',' + mS + '%,' + mL + '%)';
-  var lLight = Math.min(100, mL + 4);
-  var lDark  = Math.max(0, mL - 4);
+  var lLight = Math.min(100, mL + 2);
+  var lDark  = Math.max(0, mL - 2);
   // 3-color stitch system:
   // color1 = bright white — city outline + text
   // color2 = light tint — separator line
@@ -519,8 +519,8 @@ function render(cityName, lat, lon, geojson) {
   var textCX = ox + stampW / 2;
   var totalH = lines.length * lineHeight;
   var textZoneH = 30 + lines.length * lineHeight + 20;
-  // textStartY: clear inner border (4 cells = 24px) + padding
-  var textStartY = oy + 30;
+  // textStartY: clear both border rings (outer 2 + gap 1 + inner 1 = 4 cells = 24px) + padding
+  var textStartY = oy + CELL * 6;
   lines.forEach(function(line, li) {
     rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
   });
