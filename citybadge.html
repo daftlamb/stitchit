@@ -7,23 +7,23 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
+body{background:#c8c0b4;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
 h1{font-size:15px;font-weight:700;margin-bottom:24px;letter-spacing:.14em;text-transform:uppercase;color:#3a3028}
 .search-row{display:flex;gap:8px;margin-bottom:20px;width:100%;max-width:440px}
 .search-wrap{position:relative;flex:1}
-input{width:100%;padding:10px 14px;border:2px solid #c0bab2;border-radius:10px;font-size:14px;outline:none;background:#fff;font-family:'Outfit',sans-serif}
-input:focus{border-color:#1a1a1a}
-button{padding:10px 22px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.06em;font-family:'Outfit',sans-serif}
-button:hover{background:#333}
-button:disabled{opacity:.4;cursor:not-allowed}
-#status{font-size:12px;color:#808080;margin-bottom:20px;min-height:18px}
+input{width:100%;padding:10px 14px;border:2px solid #b0a898;border-radius:10px;font-size:14px;outline:none;background:#faf8f4;font-family:'Outfit',sans-serif}
+input:focus{border-color:#7060a0}
+button{padding:10px 22px;background:#2a2030;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.06em;font-family:'Outfit',sans-serif}
+button:hover{background:#1a1020}
+button:disabled{opacity:.5;cursor:not-allowed}
+#status{font-size:12px;color:#706050;margin-bottom:20px;min-height:18px}
 #canvas-wrap{display:none;flex-direction:column;align-items:center;gap:16px}
 canvas{display:block;}
-.dl-btn{padding:9px 28px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
-.suggestions{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;border:1.5px solid #c0bab2;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;z-index:10}
-.sug-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #eee;font-family:'Outfit',sans-serif}
+.dl-btn{padding:9px 28px;background:#2a2030;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
+.suggestions{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#faf8f4;border:1.5px solid #b0a898;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;z-index:10}
+.sug-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #ece8e0;font-family:'Outfit',sans-serif}
 .sug-item:last-child{border-bottom:none}
-.sug-item:hover{background:#f5f3ef}
+.sug-item:hover{background:#f0ede8}
 </style>
 </head>
 <body>
@@ -48,7 +48,6 @@ var cityInput=document.getElementById('city-input');
 var sugBox=document.getElementById('suggestions');
 var genBtn=document.getElementById('gen-btn');
 
-// ── Autocomplete ──
 var sugTimer=null;
 cityInput.addEventListener('input',function(){
   clearTimeout(sugTimer);
@@ -58,6 +57,7 @@ cityInput.addEventListener('input',function(){
 });
 cityInput.addEventListener('keydown',function(e){if(e.key==='Enter')go();});
 document.addEventListener('click',function(e){if(!e.target.closest('.search-wrap'))sugBox.style.display='none';});
+
 function fetchSug(q){
   fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&featuretype=city',{headers:{'Accept-Language':'en'}})
   .then(function(r){return r.json();}).then(function(data){
@@ -75,7 +75,6 @@ function fetchSug(q){
 
 function setStatus(t){document.getElementById('status').textContent=t;}
 
-// ── Main flow ──
 function go(){
   sugBox.style.display='none';
   var name=cityInput.value.trim();
@@ -110,7 +109,6 @@ function overpassGeo(data){
   return null;
 }
 
-// ── Douglas-Peucker ──
 function dp(pts,eps){
   if(pts.length<=2) return pts;
   var mx=0,ix=0,p1=pts[0],p2=pts[pts.length-1];
@@ -125,33 +123,66 @@ function pld(p,a,b){
   return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
 }
 
-// ── Smooth path using midpoint curves ──
 function smoothPath(ring){
   if(ring.length<3) return;
   ctx.moveTo((ring[0][0]+ring[1][0])/2,(ring[0][1]+ring[1][1])/2);
   for(var i=1;i<ring.length-1;i++){
-    var mx=(ring[i][0]+ring[i+1][0])/2;
-    var my=(ring[i][1]+ring[i+1][1])/2;
-    ctx.quadraticCurveTo(ring[i][0],ring[i][1],mx,my);
+    ctx.quadraticCurveTo(ring[i][0],ring[i][1],(ring[i][0]+ring[i+1][0])/2,(ring[i][1]+ring[i+1][1])/2);
   }
-  ctx.quadraticCurveTo(ring[ring.length-1][0],ring[ring.length-1][1],
-    (ring[ring.length-1][0]+ring[0][0])/2,(ring[ring.length-1][1]+ring[0][1])/2);
+  ctx.quadraticCurveTo(ring[ring.length-1][0],ring[ring.length-1][1],(ring[ring.length-1][0]+ring[0][0])/2,(ring[ring.length-1][1]+ring[0][1])/2);
   ctx.closePath();
 }
 
-// ── Render ──
 function render(cityName,lat,lon,geojson){
   ctx.clearRect(0,0,W,H);
-  var R=W/2-4;
-  var lw=6; // main line weight
+  var R=W/2-8;
+  var RIM=22;
+  var IR=R-RIM;
 
-  // White background circle
+  // ── Drop shadow ──
   ctx.save();
+  ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=28; ctx.shadowOffsetY=7;
   ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.fillStyle='#ffffff'; ctx.fill();
+  ctx.fillStyle='#888'; ctx.fill();
   ctx.restore();
 
-  // ── City outline (clipped, large, smooth) ──
+  // ── Silver rim ──
+  var rimG=ctx.createLinearGradient(CX-R,CY-R,CX+R,CY+R);
+  rimG.addColorStop(0.0,'#f4f2ee');
+  rimG.addColorStop(0.15,'#d8d4ce');
+  rimG.addColorStop(0.38,'#a0a0a0');
+  rimG.addColorStop(0.55,'#686460');
+  rimG.addColorStop(0.75,'#909090');
+  rimG.addColorStop(0.88,'#c8c4be');
+  rimG.addColorStop(1.0,'#f0eee8');
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.fillStyle=rimG; ctx.fill();
+
+  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=4; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1.5; ctx.stroke();
+
+  // ── Dark metallic face ──
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
+  var faceG=ctx.createRadialGradient(CX-IR*0.25,CY-IR*0.3,0,CX,CY,IR*1.1);
+  faceG.addColorStop(0,'#6a6878');
+  faceG.addColorStop(0.4,'#484858');
+  faceG.addColorStop(1,'#282830');
+  ctx.fillStyle=faceG; ctx.fillRect(0,0,W,H);
+  // grain
+  for(var i=0;i<400;i++){
+    var px=Math.random()*W,py=Math.random()*H;
+    if(Math.hypot(px-CX,py-CY)<IR){ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.025)+')';ctx.fillRect(px,py,1,1);}
+  }
+  // glare
+  var glG=ctx.createRadialGradient(CX-IR*0.5,CY-IR*0.55,0,CX-IR*0.2,CY-IR*0.2,IR*0.9);
+  glG.addColorStop(0,'rgba(255,255,255,0.13)'); glG.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=glG; ctx.fillRect(0,0,W,H);
+  ctx.restore();
+
+  // ── City outline — smooth, clipped, offset upper-left ──
   if(geojson){
     var ring=[];
     if(geojson.type==='Polygon') ring=geojson.coordinates[0];
@@ -164,64 +195,100 @@ function render(cityName,lat,lon,geojson){
       ring=dp(ring,0.05);
       var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
       ring.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
-      // Scale: fill 85% of diameter, let it overflow naturally
-      var sc=Math.min((R*1.7)/(maxX-minX||1),(R*1.7)/(maxY-minY||1));
-      var midLng=(minX+maxX)/2, midLat=(minY+maxY)/2;
-      // Shift center slightly up-left so bottom-right is visible (band area)
-      var offX=-R*0.12, offY=-R*0.15;
-
+      var sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minY||1));
+      var midLng=(minX+maxX)/2,midLat=(minY+maxY)/2;
+      // Shift upper-left so lower-right crops out (band area stays clear)
+      var offX=-IR*0.18, offY=-IR*0.22;
       var mapped=ring.map(function(p){
         return[CX+offX+(p[0]-midLng)*sc, CY+offY-((p[1]-midLat)*sc)];
       });
 
       ctx.save();
-      ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
-      ctx.beginPath();
-      smoothPath(mapped);
-      ctx.strokeStyle='#1a1a1a';
-      ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
       ctx.lineJoin='round'; ctx.lineCap='round';
-      ctx.stroke();
+
+      // shadow stroke
+      ctx.beginPath(); smoothPath(mapped);
+      ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=11; ctx.stroke();
+      // fill
+      ctx.beginPath(); smoothPath(mapped);
+      ctx.fillStyle='rgba(160,170,200,0.10)'; ctx.fill();
+      // silver gradient stroke
+      ctx.beginPath(); smoothPath(mapped);
+      var outG=ctx.createLinearGradient(CX-IR,CY-IR,CX+IR,CY+IR);
+      outG.addColorStop(0,'rgba(255,255,255,0.95)');
+      outG.addColorStop(0.4,'rgba(210,206,198,0.88)');
+      outG.addColorStop(0.7,'rgba(150,146,140,0.75)');
+      outG.addColorStop(1,'rgba(230,228,222,0.92)');
+      ctx.strokeStyle=outG; ctx.lineWidth=7; ctx.stroke();
+      // highlight offset
+      ctx.save(); ctx.translate(-1.5,-2);
+      ctx.beginPath(); smoothPath(mapped);
+      ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=2.5; ctx.stroke();
+      ctx.restore();
       ctx.restore();
     }
   }
 
-  // ── Two parallel arc lines (bottom band) ──
-  // Use chord-based arcs that follow the circle curvature
-  var band1Y=CY+R*0.38; // top line of band
-  var band2Y=CY+R*0.58; // bottom line of band
-  var arcR=R*2.8;       // radius of arc (large = subtle curve)
+  // ── Two arc lines (lower-right area, following sketch) ──
+  // Band sits in lower portion, slanted with the circle
+  var band1Y=CY+IR*0.46;
+  var band2Y=CY+IR*0.64;
+  var arcR=IR*3.5; // large radius = subtle curve
 
   ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
+  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
 
-  function drawArcLine(y){
-    // Compute arc center below the line to create upward curve
+  function drawArcLine(y,lw){
     var arcCY=y+arcR;
-    var halfAngle=Math.asin(R/arcR);
+    var halfAngle=Math.asin(Math.min(IR/arcR,0.9999));
     ctx.beginPath();
     ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=lw; ctx.stroke();
+    // silver gradient along line
+    var lg=ctx.createLinearGradient(CX-IR,y,CX+IR,y);
+    lg.addColorStop(0,'rgba(255,255,255,0)');
+    lg.addColorStop(0.15,'rgba(255,255,255,0.7)');
+    lg.addColorStop(0.5,'rgba(200,196,188,0.8)');
+    lg.addColorStop(0.85,'rgba(255,255,255,0.7)');
+    lg.addColorStop(1,'rgba(255,255,255,0)');
+    // shadow
+    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=lw+3; ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
+    ctx.strokeStyle=lg; ctx.lineWidth=lw; ctx.stroke();
   }
-  drawArcLine(band1Y);
-  drawArcLine(band2Y);
+  drawArcLine(band1Y,3);
+  drawArcLine(band2Y,3);
   ctx.restore();
 
-  // ── City name — right aligned in band ──
+  // ── City name inside band, right-aligned ──
   ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
-  var bandMidY=(band1Y+band2Y)/2+6;
-  var fontSize=cityName.length>12?18:cityName.length>8?22:26;
-  ctx.font='700 '+fontSize+'px Outfit,sans-serif';
-  ctx.textAlign='right';
-  ctx.fillStyle='#1a1a1a';
-  ctx.fillText(cityName, CX+R*0.86, bandMidY);
+  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
+  var bandMidY=(band1Y+band2Y)/2+7;
+  var nameX=CX+IR*0.84;
+  var fontSize=cityName.length>12?17:cityName.length>8?21:25;
+  ctx.font='800 '+fontSize+'px Outfit,sans-serif';
+  ctx.textAlign='right'; ctx.letterSpacing='0.12em';
+  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY+2);
+  ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY-1);
+  ctx.fillStyle='#f0eee8'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY);
+
+  // coordinates below name
+  var latS=Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S');
+  var lonS=Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
+  ctx.font='600 10px Outfit,sans-serif'; ctx.letterSpacing='0.08em';
+  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillText(latS+'  '+lonS,nameX,bandMidY+14);
+  ctx.fillStyle='rgba(200,196,188,0.65)'; ctx.fillText(latS+'  '+lonS,nameX,bandMidY+13);
   ctx.restore();
 
-  // ── Outer ring ──
+  // ── Rim top arc highlight ──
   ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=lw; ctx.stroke();
+  var arcHG=ctx.createLinearGradient(CX-R,CY-R,CX+R*0.5,CY-R*0.5);
+  arcHG.addColorStop(0,'rgba(255,255,255,0.65)');
+  arcHG.addColorStop(0.5,'rgba(255,255,255,0.2)');
+  arcHG.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.beginPath(); ctx.arc(CX,CY,R-2,Math.PI*1.1,Math.PI*1.9);
+  ctx.strokeStyle=arcHG; ctx.lineWidth=3; ctx.stroke();
   ctx.restore();
 
   document.getElementById('canvas-wrap').style.display='flex';
