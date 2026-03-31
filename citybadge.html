@@ -44,6 +44,11 @@ canvas{display:block}
   <button class="font-btn" data-font="Bebas Neue">Bebas</button>
   <button class="font-btn" data-font="DM Serif Display">DM Serif</button>
 </div>
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:12px;color:#3a3028">
+  <span>Size</span>
+  <input id="size-slider" type="range" min="16" max="72" value="38" step="2" style="width:140px">
+  <span id="size-val">38px</span>
+</div>
 <div id="status"></div>
 <div id="canvas-wrap">
   <canvas id="badge" width="520" height="640"></canvas>
@@ -53,7 +58,13 @@ canvas{display:block}
 var canvas = document.getElementById('badge');
 var ctx = canvas.getContext('2d');
 var activeFont = 'Outfit';
+var manualFontSize = 38;
 var lastRenderArgs = null;
+document.getElementById('size-slider').addEventListener('input', function() {
+  manualFontSize = parseInt(this.value);
+  document.getElementById('size-val').textContent = manualFontSize + 'px';
+  if (lastRenderArgs) render.apply(null, lastRenderArgs);
+});
 document.querySelectorAll('.font-btn').forEach(function(btn) {
   btn.addEventListener('click', function() {
     document.querySelectorAll('.font-btn').forEach(function(b){ b.classList.remove('active-font'); });
@@ -436,10 +447,9 @@ function render(cityName, lat, lon, geojson) {
     }
   });
   lines = finalLines;
-  var fontSize = 38;
+  var fontSize = manualFontSize;
   var lineHeight = fontSize + 12;
-  // Measure actual text width on offscreen canvas, shrink until fits
-  var maxLineLen = lines.reduce(function(m, l) { return Math.max(m, l.length); }, 0);
+  // Shrink only if overflows stamp width (actual measurement)
   var _mc = document.createElement('canvas').getContext('2d');
   while (fontSize > 14) {
     _mc.font = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
@@ -508,9 +518,9 @@ function render(cityName, lat, lon, geojson) {
   var textFont = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
   var textCX = ox + stampW / 2;
   var totalH = lines.length * lineHeight;
-  var textZoneH = 36 + lines.length * (fontSize + 14) + 24;
-  // textStartY: vertically center text block within textZoneH
-  var textStartY = oy + Math.round((textZoneH - totalH) / 2) + 4;
+  var textZoneH = 30 + lines.length * lineHeight + 20;
+  // textStartY: clear inner border (4 cells = 24px) + padding
+  var textStartY = oy + 30;
   lines.forEach(function(line, li) {
     rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
   });
