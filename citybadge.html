@@ -190,9 +190,9 @@ function render(cityName,lat,lon,geojson){
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
 
   var faceG=ctx.createRadialGradient(CX-IR*0.25,CY-IR*0.3,0,CX,CY,IR*1.1);
-  faceG.addColorStop(0,'#4a4860');
-  faceG.addColorStop(0.4,'#2a2838');
-  faceG.addColorStop(1,'#0e0c18');
+  faceG.addColorStop(0,'#6a6878');
+  faceG.addColorStop(0.4,'#484858');
+  faceG.addColorStop(1,'#282830');
   ctx.fillStyle=faceG; ctx.fillRect(0,0,W,H);
 
   // Subtle grain
@@ -286,7 +286,7 @@ function drawOutline(geojson,IR){
     ring=best||[];
   }
   if(!ring.length) return;
-  ring=dp(ring,0.006);
+  ring=dp(ring,0.028);
 
   var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
   ring.forEach(function(p){
@@ -294,8 +294,8 @@ function drawOutline(geojson,IR){
     if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];
   });
 
-  // Scale to fill most of circle (can exceed = clip)
-  var scX=(IR*1.8)/(maxX-minX||1), scY=(IR*1.4)/(maxY-minY||1);
+  // Large scale — city crops out of circle intentionally
+  var scX=(IR*2.6)/(maxX-minX||1), scY=(IR*2.0)/(maxY-minY||1);
   var sc=Math.min(scX,scY);
   var midLng=(minX+maxX)/2, midLat=(minY+maxY)/2;
   var offY=-IR*0.06; // slight upward
@@ -313,8 +313,8 @@ function drawOutline(geojson,IR){
   ctx.beginPath();
   ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
   ctx.closePath();
-  ctx.strokeStyle='rgba(0,0,0,0.7)';
-  ctx.lineWidth=5;
+  ctx.strokeStyle='rgba(0,0,0,0.75)';
+  ctx.lineWidth=9;
   ctx.shadowColor='rgba(0,0,0,0.0)'; ctx.shadowBlur=0;
   ctx.stroke();
 
@@ -322,7 +322,7 @@ function drawOutline(geojson,IR){
   ctx.beginPath();
   ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
   ctx.closePath();
-  ctx.fillStyle='rgba(160,170,200,0.13)';
+  ctx.fillStyle='rgba(160,170,200,0.10)';
   ctx.fill();
 
   // ── Main outline — silver ──
@@ -331,20 +331,20 @@ function drawOutline(geojson,IR){
   ctx.closePath();
   var outG=ctx.createLinearGradient(CX-IR,CY-IR,CX+IR,CY+IR);
   outG.addColorStop(0,'rgba(255,255,255,0.95)');
-  outG.addColorStop(0.4,'rgba(200,196,188,0.85)');
-  outG.addColorStop(0.7,'rgba(140,136,130,0.7)');
-  outG.addColorStop(1,'rgba(220,218,212,0.9)');
+  outG.addColorStop(0.4,'rgba(210,206,198,0.88)');
+  outG.addColorStop(0.7,'rgba(150,146,140,0.75)');
+  outG.addColorStop(1,'rgba(230,228,222,0.92)');
   ctx.strokeStyle=outG;
-  ctx.lineWidth=2.5; ctx.stroke();
+  ctx.lineWidth=5; ctx.stroke();
 
   // ── Emboss highlight (bright, offset up-left) ──
   ctx.save();
-  ctx.translate(-1.2,-1.5);
+  ctx.translate(-1.5,-2);
   ctx.beginPath();
   ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
   ctx.closePath();
-  ctx.strokeStyle='rgba(255,255,255,0.45)';
-  ctx.lineWidth=1.2; ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,0.5)';
+  ctx.lineWidth=2; ctx.stroke();
   ctx.restore();
 
   ctx.restore();
