@@ -331,21 +331,19 @@ function embroideryStroke(drawFn, lw, threadColor) {
 
 
 function embroideryText(text, x, y, font, align, threadColor) {
-  // Render text to offscreen canvas, sample edge pixels, draw cross stitches
-  var sz = 3; // stitch size — small for readable text
-  var tc = threadColor || 'rgba(100,80,60,0.97)';
+  var sz = 3;
+  var stitchColor = threadColor || 'rgba(100,80,60,0.97)';
   var tmp = document.createElement('canvas');
-  // measure text
   ctx.font = font; ctx.textAlign = align||'center';
   var metrics = ctx.measureText(text);
   var tw = Math.ceil(metrics.width) + sz*4;
   var th = Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) + sz*4;
   tmp.width = tw; tmp.height = th;
-  var tc = tmp.getContext('2d');
-  tc.font = font; tc.textAlign = 'center'; tc.textBaseline = 'middle';
-  tc.fillStyle = '#fff';
-  tc.fillText(text, tw/2, th/2);
-  var imgd = tc.getImageData(0,0,tw,th).data;
+  var tctx = tmp.getContext('2d');
+  tctx.font = font; tctx.textAlign = 'center'; tctx.textBaseline = 'middle';
+  tctx.fillStyle = '#fff';
+  tctx.fillText(text, tw/2, th/2);
+  var imgd = tctx.getImageData(0,0,tw,th).data;
   // Build list of lit pixels, then place stitches on grid
   var grid = sz; // one stitch per grid cell
   var ox = x - tw/2, oy = y - th/2; // top-left origin in main canvas
@@ -373,7 +371,7 @@ function embroideryText(text, x, y, font, align, threadColor) {
       ctx.lineTo(jx+(-s*ca+s*(-sa))+1, jy+(-s*sa+s*ca)+1.5);
       ctx.stroke();
       // main colored cross with wobble
-      ctx.strokeStyle=tc; ctx.lineWidth=sz*0.45;
+      ctx.strokeStyle=stitchColor; ctx.lineWidth=sz*0.45;
       ctx.beginPath();
       ctx.moveTo(jx+(-s*ca-s*(-sa)), jy+(-s*sa-s*ca));
       ctx.lineTo(jx+( s*ca+s*(-sa)), jy+( s*sa+s*ca));
@@ -386,6 +384,9 @@ function embroideryText(text, x, y, font, align, threadColor) {
 
 function render(cityName, lat, lon, geojson) {
   ctx.clearRect(0, 0, W, H);
+  // Paint canvas background to avoid transparent checkerboard
+  ctx.fillStyle = '#e8e4de';
+  ctx.fillRect(0, 0, W, H);
 
   // Stamp dimensions
   var margin = 30;
@@ -476,7 +477,7 @@ function render(cityName, lat, lon, geojson) {
       var midLat = (minY + maxY) / 2;
 
       var shapeCX = sx + sw / 2;
-      var shapeCY = sy + sh * 0.54; // moved down
+      var shapeCY = sy + sh * 0.58; // center of lower 3/4 area (below title)
 
       var mapped = ring.map(function(p) {
         return [
