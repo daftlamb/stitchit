@@ -4,27 +4,26 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>City Badge</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#c8c0b4;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
-h1{font-size:16px;font-weight:700;margin-bottom:24px;letter-spacing:.14em;text-transform:uppercase;color:#3a3028}
+body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
+h1{font-size:15px;font-weight:700;margin-bottom:24px;letter-spacing:.14em;text-transform:uppercase;color:#3a3028}
 .search-row{display:flex;gap:8px;margin-bottom:20px;width:100%;max-width:440px}
 .search-wrap{position:relative;flex:1}
-input{width:100%;padding:10px 14px;border:2px solid #b0a898;border-radius:10px;font-size:14px;outline:none;background:#faf8f4;font-family:'Outfit',sans-serif}
-input:focus{border-color:#7060a0}
-button{padding:10px 22px;background:#2a2030;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.06em;font-family:'Outfit',sans-serif}
-button:hover{background:#1a1020}
-button:disabled{opacity:.5;cursor:not-allowed}
-#status{font-size:12px;color:#706050;margin-bottom:20px;min-height:18px;font-family:'Outfit',sans-serif}
+input{width:100%;padding:10px 14px;border:2px solid #c0bab2;border-radius:10px;font-size:14px;outline:none;background:#fff;font-family:'Outfit',sans-serif}
+input:focus{border-color:#1a1a1a}
+button{padding:10px 22px;background:#1a1a1a;color:#fff;border:none;border-radius:10px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.06em;font-family:'Outfit',sans-serif}
+button:hover{background:#333}
+button:disabled{opacity:.4;cursor:not-allowed}
+#status{font-size:12px;color:#808080;margin-bottom:20px;min-height:18px}
 #canvas-wrap{display:none;flex-direction:column;align-items:center;gap:16px}
-canvas{display:block;filter:drop-shadow(0 10px 40px rgba(0,0,0,0.45))}
-.dl-btn{padding:9px 28px;background:#2a2030;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;letter-spacing:.06em;font-family:'Outfit',sans-serif}
-.suggestions{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#faf8f4;border:1.5px solid #b0a898;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;z-index:10}
-.sug-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #ece8e0;font-family:'Outfit',sans-serif}
+canvas{display:block;filter:drop-shadow(0 6px 24px rgba(0,0,0,0.2))}
+.dl-btn{padding:9px 28px;background:#1a1a1a;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
+.suggestions{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#fff;border:1.5px solid #c0bab2;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;z-index:10}
+.sug-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #eee;font-family:'Outfit',sans-serif}
 .sug-item:last-child{border-bottom:none}
-.sug-item:hover{background:#f0ede8}
+.sug-item:hover{background:#f5f3ef}
 </style>
 </head>
 <body>
@@ -41,35 +40,16 @@ canvas{display:block;filter:drop-shadow(0 10px 40px rgba(0,0,0,0.45))}
   <canvas id="badge" width="480" height="480"></canvas>
   <button class="dl-btn" id="dl-btn">Download PNG</button>
 </div>
-
 <script>
 var canvas=document.getElementById('badge');
 var ctx=canvas.getContext('2d');
 var W=480,H=480,CX=W/2,CY=H/2;
-
-// ── Silver palette ──
-var PAL={
-  rim1:'#f0eee8',   // bright rim top
-  rim2:'#a8a4a0',   // rim mid
-  rim3:'#585450',   // rim dark bottom
-  face1:'#d8d4ce',  // face top
-  face2:'#909090',  // face mid
-  face3:'#484440',  // face bottom
-  shine:'rgba(255,255,255,0.7)',
-  shadow:'rgba(0,0,0,0.6)',
-  lineCol:'rgba(255,255,255,0.9)',
-  glowCol:'rgba(220,220,255,0.7)',
-  fillCol:'rgba(200,210,240,0.18)',
-  textCol:'#f8f6f0',
-  subCol:'rgba(255,255,255,0.5)'
-};
-
-// ── Autocomplete ──
-var sugTimer=null;
 var cityInput=document.getElementById('city-input');
 var sugBox=document.getElementById('suggestions');
 var genBtn=document.getElementById('gen-btn');
 
+// ── Autocomplete ──
+var sugTimer=null;
 cityInput.addEventListener('input',function(){
   clearTimeout(sugTimer);
   var q=this.value.trim();
@@ -78,7 +58,6 @@ cityInput.addEventListener('input',function(){
 });
 cityInput.addEventListener('keydown',function(e){if(e.key==='Enter')go();});
 document.addEventListener('click',function(e){if(!e.target.closest('.search-wrap'))sugBox.style.display='none';});
-
 function fetchSug(q){
   fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&featuretype=city',{headers:{'Accept-Language':'en'}})
   .then(function(r){return r.json();}).then(function(data){
@@ -87,10 +66,7 @@ function fetchSug(q){
     data.forEach(function(d){
       var div=document.createElement('div');div.className='sug-item';
       div.textContent=d.display_name;
-      div.addEventListener('click',function(){
-        cityInput.value=d.display_name.split(',')[0];
-        sugBox.style.display='none'; go();
-      });
+      div.addEventListener('click',function(){cityInput.value=d.display_name.split(',')[0];sugBox.style.display='none';go();});
       sugBox.appendChild(div);
     });
     sugBox.style.display='block';
@@ -99,6 +75,7 @@ function fetchSug(q){
 
 function setStatus(t){document.getElementById('status').textContent=t;}
 
+// ── Main flow ──
 function go(){
   sugBox.style.display='none';
   var name=cityInput.value.trim();
@@ -113,15 +90,12 @@ function go(){
     var lat=parseFloat(d.lat),lon=parseFloat(d.lon);
     var geo=d.geojson||null;
     if(geo&&(geo.type==='Polygon'||geo.type==='MultiPolygon')){
-      render(label,lat,lon,geo); genBtn.disabled=false; return;
+      render(label,lat,lon,geo);genBtn.disabled=false;return;
     }
     setStatus('🗺 Fetching boundary…');
     var oType=d.osm_type==='relation'?'relation':d.osm_type==='way'?'way':'node';
-    var q='[out:json];'+oType+'('+d.osm_id+');out geom;';
-    return fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(q))
-    .then(function(r){return r.json();}).then(function(op){
-      render(label,lat,lon,overpassGeo(op)); genBtn.disabled=false;
-    });
+    return fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent('[out:json];'+oType+'('+d.osm_id+');out geom;'))
+    .then(function(r){return r.json();}).then(function(op){render(label,lat,lon,overpassGeo(op));genBtn.disabled=false;});
   }).catch(function(e){setStatus('⚠️ '+e.message);genBtn.disabled=false;});
 }
 
@@ -136,6 +110,7 @@ function overpassGeo(data){
   return null;
 }
 
+// ── Douglas-Peucker ──
 function dp(pts,eps){
   if(pts.length<=2) return pts;
   var mx=0,ix=0,p1=pts[0],p2=pts[pts.length-1];
@@ -150,223 +125,107 @@ function pld(p,a,b){
   return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
 }
 
+// ── Smooth path using midpoint curves ──
+function smoothPath(ring){
+  if(ring.length<3) return;
+  ctx.moveTo((ring[0][0]+ring[1][0])/2,(ring[0][1]+ring[1][1])/2);
+  for(var i=1;i<ring.length-1;i++){
+    var mx=(ring[i][0]+ring[i+1][0])/2;
+    var my=(ring[i][1]+ring[i+1][1])/2;
+    ctx.quadraticCurveTo(ring[i][0],ring[i][1],mx,my);
+  }
+  ctx.quadraticCurveTo(ring[ring.length-1][0],ring[ring.length-1][1],
+    (ring[ring.length-1][0]+ring[0][0])/2,(ring[ring.length-1][1]+ring[0][1])/2);
+  ctx.closePath();
+}
+
 // ── Render ──
 function render(cityName,lat,lon,geojson){
   ctx.clearRect(0,0,W,H);
+  var R=W/2-4;
+  var lw=6; // main line weight
 
-  var R=W/2-8;   // outer edge
-  var RIM=22;     // rim thickness
-  var IR=R-RIM;  // inner face radius
-
-  // ── Outer shadow ──
+  // White background circle
   ctx.save();
-  ctx.shadowColor='rgba(0,0,0,0.55)';
-  ctx.shadowBlur=32; ctx.shadowOffsetY=8;
   ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.fillStyle='#888'; ctx.fill();
+  ctx.fillStyle='#ffffff'; ctx.fill();
   ctx.restore();
 
-  // ── Rim: multi-stop silver bevel ──
-  var rimG=ctx.createLinearGradient(CX-R,CY-R,CX+R,CY+R);
-  rimG.addColorStop(0.0, '#f4f2ee');
-  rimG.addColorStop(0.15,'#d8d4ce');
-  rimG.addColorStop(0.35,'#a0a0a0');
-  rimG.addColorStop(0.55,'#686460');
-  rimG.addColorStop(0.75,'#909090');
-  rimG.addColorStop(0.88,'#c8c4be');
-  rimG.addColorStop(1.0, '#f0eee8');
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.fillStyle=rimG; ctx.fill();
+  // ── City outline (clipped, large, smooth) ──
+  if(geojson){
+    var ring=[];
+    if(geojson.type==='Polygon') ring=geojson.coordinates[0];
+    else if(geojson.type==='MultiPolygon'){
+      var best=null,bestLen=0;
+      geojson.coordinates.forEach(function(poly){if(poly[0].length>bestLen){bestLen=poly[0].length;best=poly[0];}});
+      ring=best||[];
+    }
+    if(ring.length){
+      ring=dp(ring,0.05);
+      var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+      ring.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
+      // Scale: fill 85% of diameter, let it overflow naturally
+      var sc=Math.min((R*1.7)/(maxX-minX||1),(R*1.7)/(maxY-minY||1));
+      var midLng=(minX+maxX)/2, midLat=(minY+maxY)/2;
+      // Shift center slightly up-left so bottom-right is visible (band area)
+      var offX=-R*0.12, offY=-R*0.15;
 
-  // Rim inner edge shadow
-  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
-  ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=4; ctx.stroke();
-  // Rim inner edge highlight
-  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
-  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1.5; ctx.stroke();
+      var mapped=ring.map(function(p){
+        return[CX+offX+(p[0]-midLng)*sc, CY+offY-((p[1]-midLat)*sc)];
+      });
 
-  // ── Face: dark metallic ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-
-  var faceG=ctx.createRadialGradient(CX-IR*0.25,CY-IR*0.3,0,CX,CY,IR*1.1);
-  faceG.addColorStop(0,'#6a6878');
-  faceG.addColorStop(0.4,'#484858');
-  faceG.addColorStop(1,'#282830');
-  ctx.fillStyle=faceG; ctx.fillRect(0,0,W,H);
-
-  // Subtle grain
-  for(var i=0;i<400;i++){
-    var px=Math.random()*W, py=Math.random()*H;
-    if(Math.hypot(px-CX,py-CY)<IR){
-      ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.025)+')';
-      ctx.fillRect(px,py,1,1);
+      ctx.save();
+      ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
+      ctx.beginPath();
+      smoothPath(mapped);
+      ctx.strokeStyle='#1a1a1a';
+      ctx.lineWidth=lw;
+      ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.stroke();
+      ctx.restore();
     }
   }
 
-  // Face top-left glare
-  var glareG=ctx.createRadialGradient(CX-IR*0.5,CY-IR*0.55,0,CX-IR*0.2,CY-IR*0.2,IR*0.9);
-  glareG.addColorStop(0,'rgba(255,255,255,0.14)');
-  glareG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=glareG; ctx.fillRect(0,0,W,H);
+  // ── Two parallel arc lines (bottom band) ──
+  // Use chord-based arcs that follow the circle curvature
+  var band1Y=CY+R*0.38; // top line of band
+  var band2Y=CY+R*0.58; // bottom line of band
+  var arcR=R*2.8;       // radius of arc (large = subtle curve)
+
+  ctx.save();
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
+
+  function drawArcLine(y){
+    // Compute arc center below the line to create upward curve
+    var arcCY=y+arcR;
+    var halfAngle=Math.asin(R/arcR);
+    ctx.beginPath();
+    ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
+    ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=lw; ctx.stroke();
+  }
+  drawArcLine(band1Y);
+  drawArcLine(band2Y);
   ctx.restore();
 
-  // ── City outline (large, clipped, rounded joins) ──
-  if(geojson) drawOutline(geojson,IR);
-
-    // ── Diagonal band with city name ──
+  // ── City name — right aligned in band ──
   ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-
-  // Band geometry: two parallel diagonal lines across the badge
-  // Slant: slight angle, band center at bottom 35% of circle
-  var bandH=52;          // band height in px
-  var slant=0.18;        // tan of angle (rise/run)
-  var bandCY=CY+IR*0.42; // vertical center of band
-
-  // Four corners of the band parallelogram (full width beyond IR)
-  var bx=IR*1.1;
-  var tl={x:CX-bx, y:bandCY - bandH/2 - bx*slant};
-  var tr={x:CX+bx, y:bandCY - bandH/2 + bx*slant};
-  var br={x:CX+bx, y:bandCY + bandH/2 + bx*slant};
-  var bl={x:CX-bx, y:bandCY + bandH/2 - bx*slant};
-
-  // Band fill — dark semi-transparent
-  ctx.beginPath();
-  ctx.moveTo(tl.x,tl.y); ctx.lineTo(tr.x,tr.y);
-  ctx.lineTo(br.x,br.y); ctx.lineTo(bl.x,bl.y);
-  ctx.closePath();
-  ctx.fillStyle='rgba(10,8,18,0.72)';
-  ctx.fill();
-
-  // Top edge line — silver
-  ctx.beginPath(); ctx.moveTo(tl.x,tl.y); ctx.lineTo(tr.x,tr.y);
-  var topG=ctx.createLinearGradient(tl.x,0,tr.x,0);
-  topG.addColorStop(0,'rgba(255,255,255,0)');
-  topG.addColorStop(0.15,'rgba(255,255,255,0.7)');
-  topG.addColorStop(0.85,'rgba(255,255,255,0.7)');
-  topG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.strokeStyle=topG; ctx.lineWidth=1.5; ctx.stroke();
-
-  // Bottom edge line — silver
-  ctx.beginPath(); ctx.moveTo(bl.x,bl.y); ctx.lineTo(br.x,br.y);
-  ctx.strokeStyle=topG; ctx.lineWidth=1.5; ctx.stroke();
-
-  // City name — right aligned, embossed
-  var fontSize=cityName.length>12?19:cityName.length>8?23:28;
-  ctx.font='800 '+fontSize+'px Outfit,sans-serif';
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2); ctx.clip();
+  var bandMidY=(band1Y+band2Y)/2+6;
+  var fontSize=cityName.length>12?18:cityName.length>8?22:26;
+  ctx.font='700 '+fontSize+'px Outfit,sans-serif';
   ctx.textAlign='right';
-  ctx.letterSpacing='0.12em';
-  var nameX=CX+IR*0.82;
-  var nameY=bandCY + fontSize*0.36 + nameX*slant - CX*slant; // follow slant
-  // shadow
-  ctx.fillStyle='rgba(0,0,0,0.6)';
-  ctx.fillText(cityName.toUpperCase(), nameX, nameY+2);
-  // highlight
-  ctx.fillStyle='rgba(255,255,255,0.15)';
-  ctx.fillText(cityName.toUpperCase(), nameX, nameY-1);
-  // main
-  ctx.fillStyle='#f0eee8';
-  ctx.fillText(cityName.toUpperCase(), nameX, nameY);
-
-  // Coordinates — right aligned below name, inside band
-  var latS=Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S');
-  var lonS=Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
-  ctx.font='600 11px Outfit,sans-serif';
-  ctx.letterSpacing='0.08em';
-  var coordY=nameY+16;
-  ctx.fillStyle='rgba(0,0,0,0.4)';
-  ctx.fillText(latS+'  '+lonS, nameX, coordY+1);
-  ctx.fillStyle='rgba(210,206,198,0.65)';
-  ctx.fillText(latS+'  '+lonS, nameX, coordY);
-
+  ctx.fillStyle='#1a1a1a';
+  ctx.fillText(cityName, CX+R*0.86, bandMidY);
   ctx.restore();
 
-  // ── Rim top highlight arc ──
+  // ── Outer ring ──
   ctx.save();
-  var arcG=ctx.createLinearGradient(CX-R,CY-R,CX+R*0.5,CY-R*0.5);
-  arcG.addColorStop(0,'rgba(255,255,255,0.65)');
-  arcG.addColorStop(0.5,'rgba(255,255,255,0.2)');
-  arcG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.beginPath(); ctx.arc(CX,CY,R-2,Math.PI*1.1,Math.PI*1.9);
-  ctx.strokeStyle=arcG; ctx.lineWidth=3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
+  ctx.strokeStyle='#1a1a1a'; ctx.lineWidth=lw; ctx.stroke();
   ctx.restore();
 
   document.getElementById('canvas-wrap').style.display='flex';
   setStatus('✅  '+cityName);
-}
-
-function drawOutline(geojson,IR){
-  var ring=[];
-  if(geojson.type==='Polygon') ring=geojson.coordinates[0];
-  else if(geojson.type==='MultiPolygon'){
-    var best=null,bestLen=0;
-    geojson.coordinates.forEach(function(poly){if(poly[0].length>bestLen){bestLen=poly[0].length;best=poly[0];}});
-    ring=best||[];
-  }
-  if(!ring.length) return;
-  ring=dp(ring,0.06);
-
-  var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-  ring.forEach(function(p){
-    if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];
-    if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];
-  });
-
-  // Large scale — city crops out of circle intentionally
-  var scX=(IR*2.2)/(maxX-minX||1), scY=(IR*2.2)/(maxY-minY||1);
-  var sc=Math.min(scX,scY);
-  var midLng=(minX+maxX)/2, midLat=(minY+maxY)/2;
-  var offY=-IR*0.06; // slight upward
-
-  function tx(p){return CX+(p[0]-midLng)*sc;}
-  function ty(p){return CY+offY-((p[1]-midLat)*sc);}
-
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-
-  // Build path with rounded lineJoin
-  ctx.lineJoin='round'; ctx.lineCap='round';
-
-  // ── Emboss shadow (dark, offset down-right) ──
-  ctx.beginPath();
-  ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
-  ctx.closePath();
-  ctx.strokeStyle='rgba(0,0,0,0.75)';
-  ctx.lineWidth=13;
-  ctx.shadowColor='rgba(0,0,0,0.0)'; ctx.shadowBlur=0;
-  ctx.stroke();
-
-  // ── Fill ──
-  ctx.beginPath();
-  ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
-  ctx.closePath();
-  ctx.fillStyle='rgba(160,170,200,0.10)';
-  ctx.fill();
-
-  // ── Main outline — silver ──
-  ctx.beginPath();
-  ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
-  ctx.closePath();
-  var outG=ctx.createLinearGradient(CX-IR,CY-IR,CX+IR,CY+IR);
-  outG.addColorStop(0,'rgba(255,255,255,0.95)');
-  outG.addColorStop(0.4,'rgba(210,206,198,0.88)');
-  outG.addColorStop(0.7,'rgba(150,146,140,0.75)');
-  outG.addColorStop(1,'rgba(230,228,222,0.92)');
-  ctx.strokeStyle=outG;
-  ctx.lineWidth=8; ctx.stroke();
-
-  // ── Emboss highlight (bright, offset up-left) ──
-  ctx.save();
-  ctx.translate(-1.5,-2);
-  ctx.beginPath();
-  ring.forEach(function(p,i){i===0?ctx.moveTo(tx(p),ty(p)):ctx.lineTo(tx(p),ty(p));});
-  ctx.closePath();
-  ctx.strokeStyle='rgba(255,255,255,0.5)';
-  ctx.lineWidth=3; ctx.stroke();
-  ctx.restore();
-
-  ctx.restore();
 }
 
 genBtn.addEventListener('click',go);
