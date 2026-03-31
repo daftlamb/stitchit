@@ -291,24 +291,30 @@ function render(cityName,lat,lon,geojson){
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
   ctx.lineJoin='round'; ctx.lineCap='butt';
 
+  // Arc line: large-radius arc curving upward (concave from below)
   function drawBandLine(baseY){
-    var x0=CX-bx, y0=lineY(baseY,x0);
-    var x1=CX+bx, y1=lineY(baseY,x1);
+    var arcR=IR*4.0; // large radius = subtle upward curve
+    var arcCY=baseY+arcR; // arc center below the line
+    var halfAngle=Math.asin(Math.min(bx/arcR,0.9999));
     // shadow
-    ctx.beginPath(); ctx.moveTo(x0,y0+2); ctx.lineTo(x1,y1+2);
+    ctx.save(); ctx.translate(0,2.5);
+    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
     ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=LW+3; ctx.stroke();
+    ctx.restore();
     // main gradient
-    var lg=ctx.createLinearGradient(x0,0,x1,0);
+    var lg=ctx.createLinearGradient(CX-bx,0,CX+bx,0);
     lg.addColorStop(0,'rgba(255,255,255,0)');
     lg.addColorStop(0.1,'rgba(255,255,255,0.75)');
     lg.addColorStop(0.5,'rgba(210,206,198,0.85)');
     lg.addColorStop(0.9,'rgba(255,255,255,0.75)');
     lg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
+    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
     ctx.strokeStyle=lg; ctx.lineWidth=LW; ctx.stroke();
-    // top highlight (concave inner glint)
-    ctx.beginPath(); ctx.moveTo(x0,y0-1.5); ctx.lineTo(x1,y1-1.5);
+    // top highlight
+    ctx.save(); ctx.translate(0,-1.5);
+    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
     ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.restore();
   }
   drawBandLine(line1Y);
   drawBandLine(line2Y);
@@ -319,7 +325,8 @@ function render(cityName,lat,lon,geojson){
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
   var nameX=CX;
   // Y center between the two lines at nameX
-  var nameY=(lineY(line1Y,nameX)+lineY(line2Y,nameX))/2;
+  // Arc center Y for band lines (for text positioning)
+  var nameY=(line1Y+line2Y)/2;
   var fontSize=cityName.length>12?20:cityName.length>8?24:28;
   nameY+=fontSize*0.36; // baseline offset
   ctx.font='800 '+fontSize+'px Outfit,sans-serif';
