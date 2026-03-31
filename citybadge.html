@@ -335,6 +335,39 @@ var BFONT = {
 };
 var BF_W = 4, BF_H = 6, BF_GAP = 1; // cell units per char
 
+// Small 3×5 font for coordinates
+var SFONT = {
+  '0':['111','101','101','101','111'],'1':['010','110','010','010','111'],
+  '2':['111','001','111','100','111'],'3':['111','001','111','001','111'],
+  '4':['101','101','111','001','001'],'5':['111','100','111','001','111'],
+  '6':['111','100','111','101','111'],'7':['111','001','001','001','001'],
+  '8':['111','101','111','101','111'],'9':['111','101','111','001','111'],
+  'N':['101','111','111','101','101'],'S':['111','100','111','001','111'],
+  'E':['111','100','110','100','111'],'W':['101','101','111','111','101'],
+  '.':['000','000','000','000','010'],'°':['010','101','010','000','000'],
+  ' ':['000','000','000','000','000']
+};
+var SF_W = 3, SF_H = 5, SF_GAP = 1;
+function drawSmallText(text, grid, COLS, ROWS, centerCol, baseRow, color) {
+  var chars = text.split('');
+  var totalW = chars.length * (SF_W + SF_GAP) - SF_GAP;
+  var startCol = centerCol - Math.floor(totalW / 2);
+  chars.forEach(function(ch, ci) {
+    var glyph = SFONT[ch] || SFONT[' '];
+    var cc = startCol + ci * (SF_W + SF_GAP);
+    for (var r = 0; r < SF_H; r++) {
+      var bits = glyph[r] || '000';
+      for (var b = 0; b < SF_W; b++) {
+        if (bits[b] === '1') {
+          var gc = cc + b, gr = baseRow + r;
+          if (gc >= 0 && gc < COLS && gr >= 0 && gr < ROWS && grid[gr*COLS+gc] === 0)
+            grid[gr*COLS+gc] = color || 3;
+        }
+      }
+    }
+  });
+}
+
 function drawBitmapText(text, grid, COLS, ROWS, centerCol, baseRow, color) {
   var chars = text.toUpperCase().split('');
   var totalW = chars.length * (BF_W + BF_GAP) - BF_GAP;
@@ -550,8 +583,8 @@ function render(cityName, lat, lon, geojson) {
   var absLat = Math.abs(lat).toFixed(1);
   var absLon = Math.abs(lon).toFixed(1);
   var coordStr = absLat + '°' + (lat >= 0 ? 'N' : 'S') + ' ' + absLon + '°' + (lon >= 0 ? 'E' : 'W');
-  var coordRow = ROWS - 5 - BF_H; // above inner border bottom
-  drawBitmapText(coordStr, grid, COLS, ROWS, Math.floor(COLS / 2), coordRow, 3);
+  var coordRow = ROWS - 5 - SF_H;
+  drawSmallText(coordStr, grid, COLS, ROWS, Math.floor(COLS / 2), coordRow, 3);
 
   // ── D. Decorative lines (seeded, avoid text/map zone) ──
   var seed = Math.abs(Math.round(lat * 1000 + lon * 1000)) | 1;
