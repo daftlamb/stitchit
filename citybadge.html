@@ -436,7 +436,7 @@ function render(cityName, lat, lon, geojson) {
   stampOx = ox; stampOy = oy; // expose to download handler
 
   // ── Morandi color ──
-  var cidx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
+  var cidx = Math.floor(Math.random() * morandiColors.length);
   var mc = morandiColors[cidx];
   var mH = mc[0], mS = mc[1], mL = mc[2];
   var stampColor = 'hsl(' + mH + ',' + mS + '%,' + mL + '%)';
