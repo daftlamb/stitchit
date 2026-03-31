@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>City Badge</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Major+Mono+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
@@ -449,8 +449,8 @@ function render(cityName, lat, lon, geojson) {
 
   // ── B. Rasterize city name text ──
   var displayName = cityName.toUpperCase();
-  var fontSize = displayName.length > 14 ? 38 : displayName.length > 10 ? 46 : 56;
-  var textFont = '400 ' + fontSize + 'px "Major Mono Display",monospace';
+  var fontSize = displayName.length > 14 ? 28 : displayName.length > 10 ? 34 : 40;
+  var textFont = '400 ' + fontSize + 'px "Press Start 2P",monospace';
   var textCX = ox + stampW / 2;
   var textCY = oy + 72;
   rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy, '0.18em');
