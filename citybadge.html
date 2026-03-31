@@ -206,9 +206,9 @@ function render(cityName,lat,lon,geojson){
   // Two parallel lines: slight left-to-right upward slant, like sketch
   // Using straight diagonal lines (sketch shows nearly straight)
   var slant=0.13; // rise per unit x (positive = goes up left-to-right)
-  var bandGap=46;
+  var bandGap=52;
   // Band center Y
-  var bandCY=CY+IR*0.64;
+  var bandCY=CY+IR*0.56;
   // line1 = top of band, line2 = bottom
   var line1Y=bandCY-bandGap/2;
   var line2Y=bandCY+bandGap/2;
@@ -293,7 +293,7 @@ function render(cityName,lat,lon,geojson){
 
   // Arc line: large-radius arc curving upward (concave from below)
   function drawBandLine(baseY){
-    var arcR=IR*4.0; // large radius = subtle upward curve
+    var arcR=IR*8.0; // large radius = subtle upward curve
     var arcCY=baseY+arcR; // arc center below the line
     var halfAngle=Math.asin(Math.min(bx/arcR,0.9999));
     // shadow
