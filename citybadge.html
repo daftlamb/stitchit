@@ -418,6 +418,13 @@ function render(cityName, lat, lon, geojson) {
   lines = finalLines;
   var fontSize = 26;
   var lineHeight = fontSize + 10;
+  // Safety: ensure longest line fits within 88% of stamp width
+  // Outfit 800 at Npx: approx charWidth = N * 0.62
+  var maxLineLen = lines.reduce(function(m, l) { return Math.max(m, l.length); }, 0);
+  while (fontSize > 12 && maxLineLen * fontSize * 0.62 > stampW * 0.88) {
+    fontSize -= 2;
+    lineHeight = fontSize + 10;
+  }
 
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
