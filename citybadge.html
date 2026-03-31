@@ -48,6 +48,7 @@ var cityInput = document.getElementById('city-input');
 var sugBox = document.getElementById('suggestions');
 var genBtn = document.getElementById('gen-btn');
 
+// ── Autocomplete ──
 var sugTimer = null;
 cityInput.addEventListener('input', function() {
   clearTimeout(sugTimer);
@@ -84,6 +85,7 @@ function fetchSug(q) {
 
 function setStatus(t) { document.getElementById('status').textContent = t; }
 
+// ── Main fetch + render trigger ──
 function go() {
   sugBox.style.display = 'none';
   var name = cityInput.value.trim();
@@ -130,7 +132,7 @@ function overpassGeo(data) {
   return null;
 }
 
-// Douglas-Peucker simplify
+// ── Douglas-Peucker simplify ──
 function dp(pts, eps) {
   if (pts.length <= 2) return pts;
   var mx = 0, ix = 0;
@@ -151,40 +153,29 @@ function pld(p, a, b) {
   return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
 }
 
-// Build smooth path commands using midpoint quadraticCurveTo
-function buildSmooth(ring) {
-  var cmds = [];
-  cmds.push({ t: 'M', x: (ring[0][0] + ring[1][0]) / 2, y: (ring[0][1] + ring[1][1]) / 2 });
-  for (var i = 1; i < ring.length - 1; i++) {
-    cmds.push({
-      t: 'Q',
-      cx: ring[i][0], cy: ring[i][1],
-      x: (ring[i][0] + ring[i + 1][0]) / 2,
-      y: (ring[i][1] + ring[i + 1][1]) / 2
-    });
+// ── Catmull-Rom spline: expand a polygon ring to many interpolated points ──
+function catmullRom(pts, steps) {
+  if (pts.length < 3) return pts;
+  steps = steps || 8;
+  var result = [];
+  var n = pts.length;
+  for (var i = 0; i < n; i++) {
+    var p0 = pts[(i - 1 + n) % n];
+    var p1 = pts[i];
+    var p2 = pts[(i + 1) % n];
+    var p3 = pts[(i + 2) % n];
+    for (var s = 0; s < steps; s++) {
+      var t = s / steps;
+      var t2 = t * t, t3 = t2 * t;
+      var x = 0.5 * ((2 * p1[0]) + (-p0[0] + p2[0]) * t + (2 * p0[0] - 5 * p1[0] + 4 * p2[0] - p3[0]) * t2 + (-p0[0] + 3 * p1[0] - 3 * p2[0] + p3[0]) * t3);
+      var y = 0.5 * ((2 * p1[1]) + (-p0[1] + p2[1]) * t + (2 * p0[1] - 5 * p1[1] + 4 * p2[1] - p3[1]) * t2 + (-p0[1] + 3 * p1[1] - 3 * p2[1] + p3[1]) * t3);
+      result.push([x, y]);
+    }
   }
-  cmds.push({
-    t: 'Q',
-    cx: ring[ring.length - 1][0], cy: ring[ring.length - 1][1],
-    x: (ring[ring.length - 1][0] + ring[0][0]) / 2,
-    y: (ring[ring.length - 1][1] + ring[0][1]) / 2
-  });
-  cmds.push({ t: 'Z' });
-  return cmds;
+  return result;
 }
 
-// Apply path commands to context, with optional dx/dy offset
-function applyPath(cmds, dx, dy) {
-  var ox = dx || 0, oy = dy || 0;
-  ctx.beginPath();
-  cmds.forEach(function(c) {
-    if (c.t === 'M') ctx.moveTo(c.x + ox, c.y + oy);
-    else if (c.t === 'Q') ctx.quadraticCurveTo(c.cx + ox, c.cy + oy, c.x + ox, c.y + oy);
-    else if (c.t === 'Z') ctx.closePath();
-  });
-}
-
-// ── Morandi palette (muted, grayish, elegant) ──
+// ── Morandi palette ──
 var morandiColors = [
   [210, 25, 62],
   [340, 20, 65],
@@ -198,223 +189,215 @@ var morandiColors = [
   [300, 15, 62]
 ];
 
-// ── Stamp perforation: draw rect path with inward semicircle notches ──
-function drawStampShape(x, y, w, h, cornerR, holeR) {
-  var sp = holeR * 3.0; // spacing between hole centers
+// ── CELL-based grid system ──
+var CELL = 6; // px per grid cell
+
+// Draw a single cross-stitch × at grid position (col, row) given stamp origin (ox, oy)
+// type: 1 = normal stitch, 2 = border stitch (slightly thicker)
+function drawCross(col, row, ox, oy, type) {
+  // center of this cell in canvas coords
+  var baseCX = ox + col * CELL + CELL / 2;
+  var baseCY = oy + row * CELL + CELL / 2;
+
+  // seeded wobble
+  var wobbleAngle = Math.sin(col * 127.1 + row * 311.7) * 0.12;
+  var wobbleX = Math.sin(col * 311.7 + row * 127.1) * 0.5;
+  var wobbleY = Math.sin(col * 211.3 + row * 431.1) * 0.5;
+  var cx = baseCX + wobbleX;
+  var cy = baseCY + wobbleY;
+
+  var arm = CELL * 0.42;
+  // rotated arm endpoints
+  var cosA = Math.cos(wobbleAngle), sinA = Math.sin(wobbleAngle);
+
+  // arm1: direction (+1,+1) normalized, rotated
+  var a1x = (arm * 0.7071) * cosA - (arm * 0.7071) * sinA;
+  var a1y = (arm * 0.7071) * sinA + (arm * 0.7071) * cosA;
+  // arm2: direction (+1,-1) normalized, rotated
+  var a2x = (arm * 0.7071) * cosA - (-arm * 0.7071) * sinA;
+  var a2y = (arm * 0.7071) * sinA + (-arm * 0.7071) * cosA;
+
+  var lw1 = type === 2 ? 2.4 : 1.8;
+  var lw2 = type === 2 ? 1.2 : 0.8;
+
+  // Layer 1: shadow
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = lw1 + 1.0;
+  ctx.lineCap = 'round';
   ctx.beginPath();
-  // Top edge: left→right, holes bite downward (center on top edge, arc goes PI→0 CW = upward bump outside = inward bite)
-  ctx.moveTo(x + holeR, y);
-  var nx = Math.round((w - holeR) / sp);
-  for (var i = 0; i < nx; i++) {
-    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
-    if (i > 0) ctx.lineTo(cx - holeR, y);
-    // bite inward (downward into stamp): center at (cx,y), arc from PI to 0 counterclockwise
-    ctx.arc(cx, y, holeR, Math.PI, 0, true);
-  }
-  ctx.lineTo(x + w, y);
-  // Right edge: top→bottom, holes bite leftward
-  var ny = Math.round((h - holeR) / sp);
-  for (var i = 0; i < ny; i++) {
-    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
-    ctx.lineTo(x + w, cy - holeR);
-    ctx.arc(x + w, cy, holeR, Math.PI * 1.5, Math.PI * 0.5, true);
-  }
-  ctx.lineTo(x + w, y + h);
-  // Bottom edge: right→left, holes bite upward
-  for (var i = nx - 1; i >= 0; i--) {
-    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
-    ctx.lineTo(cx + holeR, y + h);
-    ctx.arc(cx, y + h, holeR, 0, Math.PI, true);
-  }
-  ctx.lineTo(x, y + h);
-  // Left edge: bottom→top, holes bite rightward
-  for (var i = ny - 1; i >= 0; i--) {
-    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
-    ctx.lineTo(x, cy + holeR);
-    ctx.arc(x, cy, holeR, Math.PI * 0.5, Math.PI * 1.5, true);
-  }
-  ctx.lineTo(x, y);
-  ctx.closePath();
+  ctx.moveTo(cx - a1x + 1, cy - a1y + 1.5);
+  ctx.lineTo(cx + a1x + 1, cy + a1y + 1.5);
+  ctx.moveTo(cx - a2x + 1, cy - a2y + 1.5);
+  ctx.lineTo(cx + a2x + 1, cy + a2y + 1.5);
+  ctx.stroke();
+  ctx.restore();
+
+  // Layer 2: main white
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = lw1;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - a1x, cy - a1y);
+  ctx.lineTo(cx + a1x, cy + a1y);
+  ctx.moveTo(cx - a2x, cy - a2y);
+  ctx.lineTo(cx + a2x, cy + a2y);
+  ctx.stroke();
+  ctx.restore();
+
+  // Layer 3: highlight
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.4)';
+  ctx.lineWidth = lw2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx - a1x - 0.4, cy - a1y - 0.4);
+  ctx.lineTo(cx + a1x - 0.4, cy + a1y - 0.4);
+  ctx.moveTo(cx - a2x - 0.4, cy - a2y - 0.4);
+  ctx.lineTo(cx + a2x - 0.4, cy + a2y - 0.4);
+  ctx.stroke();
+  ctx.restore();
 }
 
-// ── Draw stitch-style stroke: 3 layers with dashed highlight for thread feel ──
-// ── Stitch unit drawing (cross or V) along a sampled path ──
-function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
-  if(pts.length<2) return;
-  var total=0, dists=[0];
-  for(var i=1;i<pts.length;i++){
-    total+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
-    dists.push(total);
-  }
-  var gap=stitchSize*1.1;
-  var s=stitchSize*0.5;
-  ctx.strokeStyle=strokeStyle; ctx.lineWidth=lineWidth;
-  ctx.lineJoin='round'; ctx.lineCap='round';
-  for(var d=gap/2;d<total;d+=gap){
-    var seg=0;
-    for(var k=1;k<dists.length;k++){if(dists[k]>=d){seg=k;break;}}
-    var t=(d-dists[seg-1])/(dists[seg]-dists[seg-1]||1);
-    var px=pts[seg-1][0]+(pts[seg][0]-pts[seg-1][0])*t;
-    var py=pts[seg-1][1]+(pts[seg][1]-pts[seg-1][1])*t;
-    var tx=pts[seg][0]-pts[seg-1][0], ty=pts[seg][1]-pts[seg-1][1];
-    var tlen=Math.hypot(tx,ty)||1; tx/=tlen; ty/=tlen;
-    var nx=-ty, ny=tx;
-    ctx.beginPath();
-    if(mode==='cross'){
-      // X cross aligned to path tangent + normal
-      ctx.moveTo(px+(-s*tx-s*nx), py+(-s*ty-s*ny));
-      ctx.lineTo(px+( s*tx+s*nx), py+( s*ty+s*ny));
-      ctx.moveTo(px+(-s*tx+s*nx), py+(-s*ty+s*ny));
-      ctx.lineTo(px+( s*tx-s*nx), py+( s*ty-s*ny));
-    } else {
-      // V shape
-      ctx.moveTo(px+(-s*nx), py+(-s*ny));
-      ctx.lineTo(px, py+(s*0.4));
-      ctx.moveTo(px+( s*nx), py+( s*ny));
-      ctx.lineTo(px, py+(s*0.4));
+// ── Rasterize a polyline onto grid cells ──
+// pts: array of [x, y] in canvas coords (relative to stamp origin ox, oy)
+// grid: Uint8Array(COLS*ROWS), COLS = stamp width / CELL, ROWS = stamp height / CELL
+// value: what to mark (1 or 2)
+function rasterizePath(pts, grid, COLS, ROWS, ox, oy, value) {
+  for (var i = 0; i < pts.length - 1; i++) {
+    var x0 = pts[i][0], y0 = pts[i][1];
+    var x1 = pts[i + 1][0], y1 = pts[i + 1][1];
+    // Walk along the segment in small steps
+    var dist = Math.hypot(x1 - x0, y1 - y0);
+    var steps = Math.max(1, Math.ceil(dist / (CELL * 0.5)));
+    for (var s = 0; s <= steps; s++) {
+      var t = s / steps;
+      var px = x0 + (x1 - x0) * t;
+      var py = y0 + (y1 - y0) * t;
+      var col = Math.floor((px - ox) / CELL);
+      var row = Math.floor((py - oy) / CELL);
+      if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+        var idx = row * COLS + col;
+        if (grid[idx] === 0 || value === 2) grid[idx] = value;
+      }
     }
-    ctx.stroke();
   }
 }
 
-function stitchOutline(mapped, stitchSize){
-  var sz=stitchSize||10;
-  // Shadow layer
-  ctx.save(); ctx.translate(1,1.5);
-  stitchAlongPath(mapped, sz, 'cross', 'rgba(0,0,0,0.38)', sz*0.9);
-  ctx.restore();
-  // Main white crosses
-  stitchAlongPath(mapped, sz, 'cross', 'rgba(255,255,255,0.97)', sz*0.55);
-  // Highlight V stitches offset half a gap
-  ctx.save(); ctx.translate(0,-0.8);
-  stitchAlongPath(mapped, sz, 'v', 'rgba(255,255,255,0.55)', sz*0.32);
-  ctx.restore();
-}
-
-function embroideryStroke(drawFn, lw) {
-  ctx.save(); ctx.translate(1,1);
-  drawFn();
-  ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=lw+2;
-  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([]); ctx.stroke();
-  ctx.restore();
-  drawFn();
-  ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=lw;
-  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([5,2]); ctx.stroke();
-  ctx.setLineDash([]);
-}
-
-
-function embroideryText(text, x, y, font, align) {
-  // Render text to offscreen canvas, sample edge pixels, draw cross stitches
-  var sz = 3; // stitch size — small for readable text
+// ── Rasterize text onto grid via offscreen canvas ──
+function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy) {
   var tmp = document.createElement('canvas');
-  // measure text
-  ctx.font = font; ctx.textAlign = align||'center';
-  var metrics = ctx.measureText(text);
-  var tw = Math.ceil(metrics.width) + sz*4;
-  var th = Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) + sz*4;
-  tmp.width = tw; tmp.height = th;
-  var tc = tmp.getContext('2d');
-  tc.font = font; tc.textAlign = 'center'; tc.textBaseline = 'middle';
-  tc.fillStyle = '#fff';
-  tc.fillText(text, tw/2, th/2);
-  var imgd = tc.getImageData(0,0,tw,th).data;
-  // Build list of lit pixels, then place stitches on grid
-  var grid = sz; // one stitch per grid cell
-  var ox = x - tw/2, oy = y - th/2; // top-left origin in main canvas
-  for(var gy=0; gy<th; gy+=grid){
-    for(var gx=0; gx<tw; gx+=grid){
-      // sample center of cell
-      var cx2=Math.floor(gx+grid/2), cy2=Math.floor(gy+grid/2);
-      if(cx2>=tw||cy2>=th) continue;
-      var a=imgd[(cy2*tw+cx2)*4+3];
-      if(a<60) continue;
-      var px=ox+gx+grid/2, py=oy+gy+grid/2;
-      var s=sz*0.5;
-      // shadow
-      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=sz*0.7;
-      ctx.lineJoin='round'; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(px-s+1,py-s+1.5); ctx.lineTo(px+s+1,py+s+1.5);
-      ctx.moveTo(px+s+1,py-s+1.5); ctx.lineTo(px-s+1,py+s+1.5); ctx.stroke();
-      // main white cross
-      ctx.strokeStyle='rgba(255,255,255,0.97)'; ctx.lineWidth=sz*0.45;
-      ctx.beginPath(); ctx.moveTo(px-s,py-s); ctx.lineTo(px+s,py+s);
-      ctx.moveTo(px+s,py-s); ctx.lineTo(px-s,py+s); ctx.stroke();
+  var tmpCtx = tmp.getContext('2d');
+  tmpCtx.font = font;
+  var met = tmpCtx.measureText(text);
+  var tw = Math.ceil(met.width) + 40;
+  var th = 120;
+  tmp.width = tw;
+  tmp.height = th;
+  tmpCtx.font = font;
+  tmpCtx.textAlign = 'center';
+  tmpCtx.textBaseline = 'middle';
+  tmpCtx.fillStyle = '#fff';
+  tmpCtx.fillText(text, tw / 2, th / 2);
+
+  var imgd = tmpCtx.getImageData(0, 0, tw, th).data;
+  // top-left corner of text block in canvas coords
+  var tlx = centerX - tw / 2;
+  var tly = centerY - th / 2;
+
+  for (var py = 0; py < th; py++) {
+    for (var px = 0; px < tw; px++) {
+      var alpha = imgd[(py * tw + px) * 4 + 3];
+      if (alpha < 60) continue;
+      var canvasX = tlx + px;
+      var canvasY = tly + py;
+      var col = Math.floor((canvasX - ox) / CELL);
+      var row = Math.floor((canvasY - oy) / CELL);
+      if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
+        var gi = row * COLS + col;
+        if (grid[gi] === 0) grid[gi] = 1;
+      }
     }
   }
 }
 
+// ── Mark border ring cells as type 2 ──
+function rasterizeBorder(grid, COLS, ROWS, rings) {
+  rings = rings || 2;
+  for (var r = 0; r < rings; r++) {
+    // top & bottom rows
+    for (var c = 0; c < COLS; c++) {
+      grid[r * COLS + c] = 2;
+      grid[(ROWS - 1 - r) * COLS + c] = 2;
+    }
+    // left & right columns
+    for (var row = 0; row < ROWS; row++) {
+      grid[row * COLS + r] = 2;
+      grid[row * COLS + (COLS - 1 - r)] = 2;
+    }
+  }
+}
+
+// ── HSL to hex helper ──
+function hsl2hex(h, s, l) {
+  s /= 100; l /= 100;
+  var a = s * Math.min(l, 1 - l);
+  function f(n) {
+    var k = (n + h / 30) % 12;
+    var color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+    return Math.round(255 * color).toString(16).padStart(2, '0');
+  }
+  return '#' + f(0) + f(8) + f(4);
+}
+
+// ── Rounded rect path helper ──
+function roundRect(ctx2, x, y, w, h, r) {
+  ctx2.beginPath();
+  ctx2.moveTo(x + r, y);
+  ctx2.lineTo(x + w - r, y);
+  ctx2.arcTo(x + w, y, x + w, y + r, r);
+  ctx2.lineTo(x + w, y + h - r);
+  ctx2.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx2.lineTo(x + r, y + h);
+  ctx2.arcTo(x, y + h, x, y + h - r, r);
+  ctx2.lineTo(x, y + r);
+  ctx2.arcTo(x, y, x + r, y, r);
+  ctx2.closePath();
+}
+
+// ── Main render ──
 function render(cityName, lat, lon, geojson) {
   ctx.clearRect(0, 0, W, H);
 
-  // Stamp dimensions
+  // Stamp rect
   var margin = 30;
   var sx = margin, sy = margin;
-  var sw = W - margin * 2, sh = H - margin * 2;
-  var cornerR = 14;
-  var holeR = 18;
+  var sw = W - margin * 2;
+  var sh = H - margin * 2;
+  var cornerR = 10;
 
-  // ── Morandi color from lat/lon ──
-  var idx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
-  var mc = morandiColors[idx];
-  var stampH = mc[0], stampS = mc[1], stampL = mc[2];
-  var stampColor = 'hsl(' + stampH + ',' + stampS + '%,' + stampL + '%)';
+  // Grid dimensions (in cells) — grid covers exactly the stamp area
+  var COLS = Math.floor(sw / CELL);
+  var ROWS = Math.floor(sh / CELL);
+  var grid = new Uint8Array(COLS * ROWS);
 
-  // ── Drop shadow ──
-  ctx.save();
-  ctx.shadowColor = 'rgba(0,0,0,0.45)';
-  ctx.shadowBlur = 24;
-  ctx.shadowOffsetX = 4;
-  ctx.shadowOffsetY = 8;
-  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-  ctx.fillStyle = stampColor;
-  ctx.fill();
-  ctx.restore();
+  // Effective stamp area snapped to cell grid
+  var stampW = COLS * CELL;
+  var stampH = ROWS * CELL;
+  // Stamp origin (top-left) shifted to center within margin
+  var ox = sx + Math.floor((sw - stampW) / 2);
+  var oy = sy + Math.floor((sh - stampH) / 2);
 
-  // ── Stamp fill + fabric texture (clipped) ──
-  ctx.save();
-  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-  ctx.clip();
+  // ── Morandi color ──
+  var cidx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
+  var mc = morandiColors[cidx];
+  var mH = mc[0], mS = mc[1], mL = mc[2];
+  var stampColor = 'hsl(' + mH + ',' + mS + '%,' + mL + '%)';
+  var lLight = Math.min(100, mL + 4);
+  var lDark  = Math.max(0, mL - 4);
 
-  // Base color fill
-  ctx.fillStyle = stampColor;
-  ctx.fillRect(sx, sy, sw, sh);
-
-  // ── Fabric texture: 8px grid, checkerboard ±8% lightness rectangles ──
-  var gridSize = 8;
-  var cellDot = 3;
-  var lLight = Math.min(100, stampL + 8);
-  var lDark  = Math.max(0,   stampL - 8);
-  for (var ty = sy; ty < sy + sh; ty += gridSize) {
-    var rowIdx = Math.floor((ty - sy) / gridSize);
-    for (var tx = sx; tx < sx + sw; tx += gridSize) {
-      var colIdx = Math.floor((tx - sx) / gridSize);
-      var isLight = (rowIdx + colIdx) % 2 === 0;
-      ctx.fillStyle = isLight
-        ? 'hsl(' + stampH + ',' + stampS + '%,' + lLight + '%)'
-        : 'hsl(' + stampH + ',' + stampS + '%,' + lDark  + '%)';
-      var dotX = tx + (gridSize - cellDot) / 2;
-      var dotY = ty + (gridSize - cellDot) / 2;
-      ctx.fillRect(dotX, dotY, cellDot, cellDot);
-    }
-  }
-
-  // ── Diagonal weave lines at 45° ──
-  ctx.save();
-  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
-  ctx.lineWidth = 1;
-  var diag = sw + sh;
-  for (var d = -diag; d < diag; d += 12) {
-    ctx.beginPath();
-    ctx.moveTo(sx + d, sy);
-    ctx.lineTo(sx + d + sh, sy + sh);
-    ctx.stroke();
-  }
-  ctx.restore();
-
-  ctx.restore();
-
-  // ── City outline (embroidered) ──
+  // ── A. Rasterize city outline onto grid ──
   if (geojson) {
     var ring = [];
     if (geojson.type === 'Polygon') {
@@ -438,81 +421,108 @@ function render(cityName, lat, lon, geojson) {
         if (p[1] > maxY) maxY = p[1];
       });
 
-      var targetW = sw * 0.65;
-      var targetH = sh * 0.55;
-      var scX = targetW / (maxX - minX || 1);
-      var scY = targetH / (maxY - minY || 1);
+      // Target area: below text zone (top ~130px of stamp), centered
+      var textZoneH = 130; // px from stamp top
+      var outlineAreaW = stampW * 0.72;
+      var outlineAreaH = stampH - textZoneH - 20;
+      var scX = outlineAreaW / (maxX - minX || 1);
+      var scY = outlineAreaH / (maxY - minY || 1);
       var sc = Math.min(scX, scY);
 
       var midLng = (minX + maxX) / 2;
       var midLat = (minY + maxY) / 2;
+      var shapeCX = ox + stampW / 2;
+      var shapeCY = oy + textZoneH + outlineAreaH / 2;
 
-      var shapeCX = sx + sw / 2;
-      var shapeCY = sy + sh * 0.54; // moved down
-
-      var mapped = ring.map(function(p) {
+      // Map geo coords → canvas coords
+      var mappedRing = ring.map(function(p) {
         return [
           shapeCX + (p[0] - midLng) * sc,
           shapeCY - (p[1] - midLat) * sc
         ];
       });
 
-      var shapeCmds = buildSmooth(mapped);
+      // Catmull-Rom smooth
+      var smoothRing = catmullRom(mappedRing, 6);
+      // close the loop
+      smoothRing.push(smoothRing[0]);
 
-      ctx.save();
-      drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-      ctx.clip();
-
-      // Fill interior with slightly lighter overlay
-      applyPath(shapeCmds, 0, 0);
-      ctx.fillStyle = 'rgba(255,255,255,0.10)';
-      ctx.fill();
-
-      // Stitch embroidery along outline points
-      stitchOutline(mapped, 5);
-
-      ctx.restore();
+      rasterizePath(smoothRing, grid, COLS, ROWS, ox, oy, 1);
     }
   }
 
-  // ── Inner border frame (18px inset, embroidery stitch style) ──
-  ctx.save();
-  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-  ctx.clip();
-
-  var fi = 22; // inset amount
-  embroideryStroke(function() {
-    ctx.beginPath();
-    ctx.rect(sx + fi, sy + fi, sw - fi * 2, sh - fi * 2);
-  }, 3);
-
-  ctx.restore();
-
-  // ── Stamp text area ──
-  ctx.save();
-  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-  ctx.clip();
-
-  // City name — top center, embroidery style
+  // ── B. Rasterize city name text ──
   var displayName = cityName.toUpperCase();
-  var fontSize = displayName.length > 14 ? 36 : displayName.length > 10 ? 44 : 52;
-  var nameY = sy + 72;
-  embroideryText(displayName, sx + sw / 2, nameY, '800 ' + fontSize + 'px Outfit,sans-serif', 'center');
+  var fontSize = displayName.length > 14 ? 38 : displayName.length > 10 ? 46 : 56;
+  var textFont = '800 ' + fontSize + 'px Outfit,sans-serif';
+  var textCX = ox + stampW / 2;
+  var textCY = oy + 72; // 72px from stamp top
+  rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy);
 
-  // Thin stitch line below name
-  var lineY2 = nameY + 16;
-  embroideryStroke(function() {
-    ctx.beginPath();
-    ctx.moveTo(sx + sw*0.15, lineY2);
-    ctx.lineTo(sx + sw*0.85, lineY2);
-  }, 1.5);
+  // ── C. Rasterize border ring (2 cells thick) ──
+  rasterizeBorder(grid, COLS, ROWS, 2);
+
+  // ══════════════════════════════════════════
+  // DRAW
+  // ══════════════════════════════════════════
+
+  // Draw page background
+  ctx.fillStyle = '#e8e4de';
+  ctx.fillRect(0, 0, W, H);
+
+  // Drop shadow under stamp
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.40)';
+  ctx.shadowBlur = 22;
+  ctx.shadowOffsetX = 4;
+  ctx.shadowOffsetY = 8;
+  roundRect(ctx, ox, oy, stampW, stampH, cornerR);
+  ctx.fillStyle = stampColor;
+  ctx.fill();
+  ctx.restore();
+
+  // Stamp base fill + fabric texture (clipped to rounded rect)
+  ctx.save();
+  roundRect(ctx, ox, oy, stampW, stampH, cornerR);
+  ctx.clip();
+
+  // Morandi base
+  ctx.fillStyle = stampColor;
+  ctx.fillRect(ox, oy, stampW, stampH);
+
+  // Fabric texture: 6px alternating lightness cells
+  for (var fy = 0; fy < ROWS; fy++) {
+    for (var fx = 0; fx < COLS; fx++) {
+      var isLight = (fx + fy) % 2 === 0;
+      ctx.fillStyle = isLight
+        ? 'hsl(' + mH + ',' + mS + '%,' + lLight + '%)'
+        : 'hsl(' + mH + ',' + mS + '%,' + lDark + '%)';
+      ctx.fillRect(ox + fx * CELL, oy + fy * CELL, CELL, CELL);
+    }
+  }
 
   ctx.restore();
 
-  // ── Stamp perimeter outline (subtle) ──
+  // Draw all stitches (clipped to stamp)
   ctx.save();
-  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  roundRect(ctx, ox, oy, stampW, stampH, cornerR);
+  ctx.clip();
+
+  for (var row = 0; row < ROWS; row++) {
+    for (var col = 0; col < COLS; col++) {
+      var cellVal = grid[row * COLS + col];
+      if (cellVal > 0) {
+        drawCross(col, row, ox, oy, cellVal);
+      }
+    }
+  }
+
+  ctx.restore();
+
+  // Stamp border outline (very subtle white rim)
+  ctx.save();
+  roundRect(ctx, ox, oy, stampW, stampH, cornerR);
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
   ctx.lineWidth = 1.5;
   ctx.stroke();
   ctx.restore();
