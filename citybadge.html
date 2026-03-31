@@ -7,7 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:#c8c0b4;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
+body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
 h1{font-size:15px;font-weight:700;margin-bottom:24px;letter-spacing:.14em;text-transform:uppercase;color:#3a3028}
 .search-row{display:flex;gap:8px;margin-bottom:20px;width:100%;max-width:440px}
 .search-wrap{position:relative;flex:1}
@@ -37,322 +37,467 @@ canvas{display:block}
 </div>
 <div id="status"></div>
 <div id="canvas-wrap">
-  <canvas id="badge" width="480" height="480"></canvas>
+  <canvas id="badge" width="520" height="640"></canvas>
   <button class="dl-btn" id="dl-btn">Download PNG</button>
 </div>
 <script>
-var canvas=document.getElementById('badge');
-var ctx=canvas.getContext('2d');
-var W=480,H=480,CX=W/2,CY=H/2;
-var cityInput=document.getElementById('city-input');
-var sugBox=document.getElementById('suggestions');
-var genBtn=document.getElementById('gen-btn');
+var canvas = document.getElementById('badge');
+var ctx = canvas.getContext('2d');
+var W = 520, H = 640;
+var cityInput = document.getElementById('city-input');
+var sugBox = document.getElementById('suggestions');
+var genBtn = document.getElementById('gen-btn');
 
-var sugTimer=null;
-cityInput.addEventListener('input',function(){
+var sugTimer = null;
+cityInput.addEventListener('input', function() {
   clearTimeout(sugTimer);
-  var q=this.value.trim();
-  if(q.length<2){sugBox.style.display='none';return;}
-  sugTimer=setTimeout(function(){fetchSug(q);},380);
+  var q = this.value.trim();
+  if (q.length < 2) { sugBox.style.display = 'none'; return; }
+  sugTimer = setTimeout(function() { fetchSug(q); }, 380);
 });
-cityInput.addEventListener('keydown',function(e){if(e.key==='Enter')go();});
-document.addEventListener('click',function(e){if(!e.target.closest('.search-wrap'))sugBox.style.display='none';});
+cityInput.addEventListener('keydown', function(e) { if (e.key === 'Enter') go(); });
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.search-wrap')) sugBox.style.display = 'none';
+});
 
-function fetchSug(q){
-  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&featuretype=city',{headers:{'Accept-Language':'en'}})
-  .then(function(r){return r.json();}).then(function(data){
-    sugBox.innerHTML='';
-    if(!data.length){sugBox.style.display='none';return;}
-    data.forEach(function(d){
-      var div=document.createElement('div');div.className='sug-item';
-      div.textContent=d.display_name;
-      div.addEventListener('click',function(){cityInput.value=d.display_name.split(',')[0];sugBox.style.display='none';go();});
+function fetchSug(q) {
+  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) + '&format=json&limit=5&featuretype=city', { headers: { 'Accept-Language': 'en' } })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    sugBox.innerHTML = '';
+    if (!data.length) { sugBox.style.display = 'none'; return; }
+    data.forEach(function(d) {
+      var div = document.createElement('div');
+      div.className = 'sug-item';
+      div.textContent = d.display_name;
+      div.addEventListener('click', function() {
+        cityInput.value = d.display_name.split(',')[0];
+        sugBox.style.display = 'none';
+        go();
+      });
       sugBox.appendChild(div);
     });
-    sugBox.style.display='block';
-  }).catch(function(){sugBox.style.display='none';});
+    sugBox.style.display = 'block';
+  })
+  .catch(function() { sugBox.style.display = 'none'; });
 }
 
-function setStatus(t){document.getElementById('status').textContent=t;}
+function setStatus(t) { document.getElementById('status').textContent = t; }
 
-function go(){
-  sugBox.style.display='none';
-  var name=cityInput.value.trim();
-  if(!name){setStatus('Enter a city name.');return;}
-  genBtn.disabled=true; setStatus('🔍 '+name+'…');
-  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(name)+'&format=json&limit=1&polygon_geojson=1',{headers:{'Accept-Language':'en'}})
-  .then(function(r){return r.json();}).then(function(data){
-    if(!data||!data[0]) throw new Error('City not found');
-    var d=data[0];
-    var label=d.display_name.split(',')[0].trim();
-    var lat=parseFloat(d.lat),lon=parseFloat(d.lon);
-    var geo=d.geojson||null;
-    if(geo&&(geo.type==='Polygon'||geo.type==='MultiPolygon')){render(label,lat,lon,geo);genBtn.disabled=false;return;}
+function go() {
+  sugBox.style.display = 'none';
+  var name = cityInput.value.trim();
+  if (!name) { setStatus('Enter a city name.'); return; }
+  genBtn.disabled = true;
+  setStatus('🔍 ' + name + '…');
+  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(name) + '&format=json&limit=1&polygon_geojson=1', { headers: { 'Accept-Language': 'en' } })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (!data || !data[0]) throw new Error('City not found');
+    var d = data[0];
+    var label = d.display_name.split(',')[0].trim();
+    var lat = parseFloat(d.lat), lon = parseFloat(d.lon);
+    var geo = d.geojson || null;
+    if (geo && (geo.type === 'Polygon' || geo.type === 'MultiPolygon')) {
+      render(label, lat, lon, geo);
+      genBtn.disabled = false;
+      return;
+    }
     setStatus('🗺 Fetching boundary…');
-    var oType=d.osm_type==='relation'?'relation':d.osm_type==='way'?'way':'node';
-    return fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent('[out:json];'+oType+'('+d.osm_id+');out geom;'))
-    .then(function(r){return r.json();}).then(function(op){render(label,lat,lon,overpassGeo(op));genBtn.disabled=false;});
-  }).catch(function(e){setStatus('⚠️ '+e.message);genBtn.disabled=false;});
+    var oType = d.osm_type === 'relation' ? 'relation' : d.osm_type === 'way' ? 'way' : 'node';
+    return fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent('[out:json];' + oType + '(' + d.osm_id + ');out geom;'))
+    .then(function(r) { return r.json(); })
+    .then(function(op) {
+      render(label, lat, lon, overpassGeo(op));
+      genBtn.disabled = false;
+    });
+  })
+  .catch(function(e) { setStatus('⚠️ ' + e.message); genBtn.disabled = false; });
 }
 
-function overpassGeo(data){
-  if(!data.elements||!data.elements[0]) return null;
-  var el=data.elements[0];
-  if(el.members){
-    var outers=el.members.filter(function(m){return m.role==='outer'&&m.geometry;});
-    if(outers.length){var ring=[];outers.forEach(function(m){m.geometry.forEach(function(p){ring.push([p.lon,p.lat]);});});return{type:'Polygon',coordinates:[ring]};}
+function overpassGeo(data) {
+  if (!data.elements || !data.elements[0]) return null;
+  var el = data.elements[0];
+  if (el.members) {
+    var outers = el.members.filter(function(m) { return m.role === 'outer' && m.geometry; });
+    if (outers.length) {
+      var ring = [];
+      outers.forEach(function(m) { m.geometry.forEach(function(p) { ring.push([p.lon, p.lat]); }); });
+      return { type: 'Polygon', coordinates: [ring] };
+    }
   }
-  if(el.geometry) return{type:'Polygon',coordinates:[el.geometry.map(function(p){return[p.lon,p.lat];})]};
+  if (el.geometry) return { type: 'Polygon', coordinates: [el.geometry.map(function(p) { return [p.lon, p.lat]; })] };
   return null;
 }
 
-function dp(pts,eps){
-  if(pts.length<=2) return pts;
-  var mx=0,ix=0,p1=pts[0],p2=pts[pts.length-1];
-  for(var i=1;i<pts.length-1;i++){var d=pld(pts[i],p1,p2);if(d>mx){mx=d;ix=i;}}
-  if(mx>eps) return dp(pts.slice(0,ix+1),eps).slice(0,-1).concat(dp(pts.slice(ix),eps));
-  return[p1,p2];
+// Douglas-Peucker simplify
+function dp(pts, eps) {
+  if (pts.length <= 2) return pts;
+  var mx = 0, ix = 0;
+  var p1 = pts[0], p2 = pts[pts.length - 1];
+  for (var i = 1; i < pts.length - 1; i++) {
+    var d = pld(pts[i], p1, p2);
+    if (d > mx) { mx = d; ix = i; }
+  }
+  if (mx > eps) {
+    return dp(pts.slice(0, ix + 1), eps).slice(0, -1).concat(dp(pts.slice(ix), eps));
+  }
+  return [p1, p2];
 }
-function pld(p,a,b){
-  var dx=b[0]-a[0],dy=b[1]-a[1];
-  if(!dx&&!dy) return Math.hypot(p[0]-a[0],p[1]-a[1]);
-  var t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy)));
-  return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
+function pld(p, a, b) {
+  var dx = b[0] - a[0], dy = b[1] - a[1];
+  if (!dx && !dy) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  var t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy)));
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
 }
 
-function buildSmooth(ring){
-  // Returns array of canvas path commands (for reuse)
-  var cmds=[];
-  cmds.push({t:'M',x:(ring[0][0]+ring[1][0])/2,y:(ring[0][1]+ring[1][1])/2});
-  for(var i=1;i<ring.length-1;i++){
-    cmds.push({t:'Q',cx:ring[i][0],cy:ring[i][1],x:(ring[i][0]+ring[i+1][0])/2,y:(ring[i][1]+ring[i+1][1])/2});
+// Build smooth path commands using midpoint quadraticCurveTo
+function buildSmooth(ring) {
+  var cmds = [];
+  cmds.push({ t: 'M', x: (ring[0][0] + ring[1][0]) / 2, y: (ring[0][1] + ring[1][1]) / 2 });
+  for (var i = 1; i < ring.length - 1; i++) {
+    cmds.push({
+      t: 'Q',
+      cx: ring[i][0], cy: ring[i][1],
+      x: (ring[i][0] + ring[i + 1][0]) / 2,
+      y: (ring[i][1] + ring[i + 1][1]) / 2
+    });
   }
-  cmds.push({t:'Q',cx:ring[ring.length-1][0],cy:ring[ring.length-1][1],x:(ring[ring.length-1][0]+ring[0][0])/2,y:(ring[ring.length-1][1]+ring[0][1])/2});
-  cmds.push({t:'Z'});
+  cmds.push({
+    t: 'Q',
+    cx: ring[ring.length - 1][0], cy: ring[ring.length - 1][1],
+    x: (ring[ring.length - 1][0] + ring[0][0]) / 2,
+    y: (ring[ring.length - 1][1] + ring[0][1]) / 2
+  });
+  cmds.push({ t: 'Z' });
   return cmds;
 }
-function applyPath(cmds){
+
+// Apply path commands to context, with optional dx/dy offset
+function applyPath(cmds, dx, dy) {
+  var ox = dx || 0, oy = dy || 0;
   ctx.beginPath();
-  cmds.forEach(function(c){
-    if(c.t==='M') ctx.moveTo(c.x,c.y);
-    else if(c.t==='Q') ctx.quadraticCurveTo(c.cx,c.cy,c.x,c.y);
-    else if(c.t==='Z') ctx.closePath();
+  cmds.forEach(function(c) {
+    if (c.t === 'M') ctx.moveTo(c.x + ox, c.y + oy);
+    else if (c.t === 'Q') ctx.quadraticCurveTo(c.cx + ox, c.cy + oy, c.x + ox, c.y + oy);
+    else if (c.t === 'Z') ctx.closePath();
   });
 }
 
-function render(cityName,lat,lon,geojson){
-  ctx.clearRect(0,0,W,H);
-  var R=W/2-8;
-  var RIM=24;
-  var IR=R-RIM;
-  var LW=7; // unified line weight (rim = outlines = arc lines)
-
-  // ── Shadow ──
+// Draw an embroidery-style stroke: shadow layer + main white + highlight
+function embroideryStroke(drawFn, lw) {
+  // Layer 1: dark shadow
   ctx.save();
-  ctx.shadowColor='rgba(0,0,0,0.55)'; ctx.shadowBlur=32; ctx.shadowOffsetY=9;
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.fillStyle='#888'; ctx.fill();
+  ctx.translate(1, 1);
+  drawFn();
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = lw + 2;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
   ctx.restore();
 
-  // ── Rim — strong silver bevel ──
-  var rimG=ctx.createLinearGradient(CX-R,CY-R,CX+R,CY+R);
-  rimG.addColorStop(0.00,'#ffffff');
-  rimG.addColorStop(0.08,'#e8e4de');
-  rimG.addColorStop(0.22,'#b8b4ae');
-  rimG.addColorStop(0.42,'#787470');
-  rimG.addColorStop(0.58,'#606060');
-  rimG.addColorStop(0.72,'#989490');
-  rimG.addColorStop(0.88,'#d0ccc6');
-  rimG.addColorStop(1.00,'#f8f6f2');
-  ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
-  ctx.fillStyle=rimG; ctx.fill();
+  // Layer 2: main white
+  drawFn();
+  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.lineWidth = lw;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
 
-  // Rim inner shadow groove
-  ctx.beginPath(); ctx.arc(CX,CY,IR+3,0,Math.PI*2);
-  ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=5; ctx.stroke();
-  // Rim inner highlight ridge
-  ctx.beginPath(); ctx.arc(CX,CY,IR+1,0,Math.PI*2);
-  ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=2; ctx.stroke();
-
-  // ── Face — dark metallic with strong radial gradient ──
+  // Layer 3: highlight offset
   ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-
-  var faceG=ctx.createRadialGradient(CX-IR*0.3,CY-IR*0.35,IR*0.05,CX+IR*0.1,CY+IR*0.1,IR*1.2);
-  faceG.addColorStop(0,'#808090');
-  faceG.addColorStop(0.25,'#585868');
-  faceG.addColorStop(0.6,'#383848');
-  faceG.addColorStop(1,'#1e1e28');
-  ctx.fillStyle=faceG; ctx.fillRect(0,0,W,H);
-
-  // Subtle metallic grain
-  for(var i=0;i<500;i++){
-    var px=Math.random()*W,py=Math.random()*H;
-    if(Math.hypot(px-CX,py-CY)<IR){
-      ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.03)+')';
-      ctx.fillRect(px,py,1+(Math.random()>0.8?1:0),1);
-    }
-  }
-
-  // Top-left glare blob
-  var glG=ctx.createRadialGradient(CX-IR*0.45,CY-IR*0.5,0,CX-IR*0.1,CY-IR*0.1,IR);
-  glG.addColorStop(0,'rgba(255,255,255,0.18)');
-  glG.addColorStop(0.4,'rgba(255,255,255,0.06)');
-  glG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=glG; ctx.fillRect(0,0,W,H);
+  ctx.translate(-0.5, -0.5);
+  drawFn();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = lw * 0.4;
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+  ctx.stroke();
   ctx.restore();
-
-  // ── Compute band lines FIRST so outline clips above them ──
-  // Two parallel lines: slight left-to-right upward slant, like sketch
-  // Using straight diagonal lines (sketch shows nearly straight)
-  var slant=0.13; // rise per unit x (positive = goes up left-to-right)
-  var bandGap=52;
-  // Band center Y
-  var bandCY=CY+IR*0.56;
-  // line1 = top of band, line2 = bottom
-  var line1Y=bandCY-bandGap/2;
-  var line2Y=bandCY+bandGap/2;
-  // x extent beyond IR to ensure full coverage
-  var bx=IR*0.82;
-
-  function lineY(baseY,x){ return baseY-(x-CX)*slant; }
-
-  // ── City outline — clipped ABOVE band line1 ──
-  var shapeCmds=null;
-  if(geojson){
-    var ring=[];
-    if(geojson.type==='Polygon') ring=geojson.coordinates[0];
-    else if(geojson.type==='MultiPolygon'){
-      var best=null,bestLen=0;
-      geojson.coordinates.forEach(function(poly){if(poly[0].length>bestLen){bestLen=poly[0].length;best=poly[0];}});
-      ring=best||[];
-    }
-    if(ring.length){
-      ring=dp(ring,0.05);
-      var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-      ring.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
-      var sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minX||1));
-      sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minY||1));
-      var midLng=(minX+maxX)/2,midLat=(minY+maxY)/2;
-      var offX=-IR*0.15, offY=-IR*0.18;
-      var mapped=ring.map(function(p){
-        return[CX+offX+(p[0]-midLng)*sc, CY+offY-((p[1]-midLat)*sc)];
-      });
-      shapeCmds=buildSmooth(mapped);
-
-      ctx.save();
-      // Clip 1: inner circle
-      ctx.beginPath();
-      ctx.arc(CX,CY,IR,0,Math.PI*2);
-      ctx.clip();
-
-      // Clip 2: above band line1 — follow the quadratic curve exactly
-      ctx.beginPath();
-      // Top of circle to left edge of band
-      ctx.moveTo(CX-IR, CY-IR);
-      ctx.lineTo(CX+IR, CY-IR);
-      ctx.lineTo(CX+IR, line1Y);
-      // Trace band line1 curve backwards (right→left)
-      ctx.quadraticCurveTo(CX, line1Y-IR*0.06, CX-IR, line1Y);
-      ctx.closePath();
-      ctx.clip();
-
-      // Random fill inside shape
-      applyPath(shapeCmds);
-      // Muted random color per render
-      var hue=(Math.abs(lat)*7+Math.abs(lon)*3)%360;
-      ctx.fillStyle='hsla('+hue+',18%,48%,0.22)';
-      ctx.fill();
-
-      // Shadow stroke (emboss depth)
-      applyPath(shapeCmds);
-      ctx.strokeStyle='rgba(0,0,0,0.65)';
-      ctx.lineWidth=LW+5; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
-
-      // Main silver stroke
-      applyPath(shapeCmds);
-      var outG=ctx.createLinearGradient(CX-IR,CY-IR,CX+IR,CY+IR);
-      outG.addColorStop(0,'rgba(255,255,255,0.95)');
-      outG.addColorStop(0.35,'rgba(215,210,202,0.9)');
-      outG.addColorStop(0.65,'rgba(155,150,144,0.8)');
-      outG.addColorStop(1,'rgba(235,232,226,0.92)');
-      ctx.strokeStyle=outG; ctx.lineWidth=LW; ctx.stroke();
-
-      // Inner highlight (concave glint)
-      ctx.save(); ctx.translate(-1.5,-2.0);
-      applyPath(shapeCmds);
-      ctx.strokeStyle='rgba(255,255,255,0.38)'; ctx.lineWidth=2; ctx.stroke();
-      ctx.restore();
-
-      ctx.restore();
-    }
-  }
-
-  // ── Two band lines — same LW as rim ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  ctx.lineJoin='round'; ctx.lineCap='butt';
-
-  // Arc line using quadraticCurveTo — control point above center keeps ends parallel
-  function drawBandLine(baseY){
-    var x0=CX-bx, x1=CX+bx;
-    var cpY=baseY-IR*0.06; // control point slightly above = upward bow
-    function stroke(dy, style, lw){
-      ctx.beginPath();
-      ctx.moveTo(x0, baseY+dy);
-      ctx.quadraticCurveTo(CX, cpY+dy, x1, baseY+dy);
-      ctx.strokeStyle=style; ctx.lineWidth=lw; ctx.stroke();
-    }
-    // shadow
-    stroke(2.5, 'rgba(0,0,0,0.55)', LW+3);
-    // main gradient
-    var lg=ctx.createLinearGradient(x0,0,x1,0);
-    lg.addColorStop(0,'rgba(255,255,255,0)');
-    lg.addColorStop(0.1,'rgba(255,255,255,0.75)');
-    lg.addColorStop(0.5,'rgba(210,206,198,0.85)');
-    lg.addColorStop(0.9,'rgba(255,255,255,0.75)');
-    lg.addColorStop(1,'rgba(255,255,255,0)');
-    stroke(0, lg, LW);
-    // top highlight
-    stroke(-1.5, 'rgba(255,255,255,0.35)', 1.5);
-  }
-  drawBandLine(line1Y);
-  drawBandLine(line2Y);
-  ctx.restore();
-
-  // ── City name — right-aligned between the two lines ──
-  ctx.save();
-  ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  var nameX=CX;
-  // Y center between the two lines at nameX
-  // Arc center Y for band lines (for text positioning)
-  var nameY=(line1Y+line2Y)/2;
-  var fontSize=cityName.length>12?20:cityName.length>8?24:28;
-  nameY+=fontSize*0.36; // baseline offset
-  ctx.font='800 '+fontSize+'px Outfit,sans-serif';
-  ctx.textAlign='center'; ctx.letterSpacing='0.13em';
-  ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY+2);
-  ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY-1);
-  ctx.fillStyle='#f2f0ea'; ctx.fillText(cityName.toUpperCase(),nameX,nameY);
-  ctx.restore();
-
-  // ── Rim outer highlight arc (top-left) ──
-  ctx.save();
-  var arcHG=ctx.createLinearGradient(CX-R,CY-R,CX+R*0.3,CY-R*0.4);
-  arcHG.addColorStop(0,'rgba(255,255,255,0.8)');
-  arcHG.addColorStop(0.45,'rgba(255,255,255,0.25)');
-  arcHG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.beginPath(); ctx.arc(CX,CY,R-LW/2,Math.PI*1.05,Math.PI*1.92);
-  ctx.strokeStyle=arcHG; ctx.lineWidth=4; ctx.stroke();
-  ctx.restore();
-
-  document.getElementById('canvas-wrap').style.display='flex';
-  setStatus('✅  '+cityName);
 }
 
-genBtn.addEventListener('click',go);
-document.getElementById('dl-btn').addEventListener('click',function(){
-  var a=document.createElement('a');a.href=canvas.toDataURL('image/png');a.download='citybadge.png';a.click();
+// Draw embroidery-style text layers
+function embroideryText(text, x, y, font, align) {
+  ctx.font = font;
+  ctx.textAlign = align || 'center';
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // Layer 1: shadow
+  ctx.save();
+  ctx.translate(1, 1);
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+  ctx.lineWidth = 6;
+  ctx.strokeText(text, x, y);
+  ctx.restore();
+
+  // Layer 2: main white fill
+  ctx.fillStyle = 'rgba(255,255,255,0.95)';
+  ctx.fillText(text, x, y);
+
+  // Layer 3: white stroke highlight
+  ctx.save();
+  ctx.translate(-0.5, -0.5);
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeText(text, x, y);
+  ctx.restore();
+}
+
+// Draw the stamp perforated edge (rounded rectangle with semicircle perforations)
+function drawStampShape(x, y, w, h, r, holeR) {
+  // Perforated stamp edge: draw the outer rounded rect minus semicircle bites
+  // We'll clip to inside the stamp using a path that traces the perforated edge
+  // The stamp area is defined as: outer rounded rect with semicircle arcs punched out along perimeter
+  var spacing = holeR * 2 + holeR * 0.7; // center-to-center spacing
+  ctx.beginPath();
+
+  // Helper: count holes along a side length
+  function holesAlong(len) {
+    var count = Math.floor(len / spacing);
+    if (count % 2 === 0) count--;
+    return Math.max(1, count);
+  }
+
+  var nTop = holesAlong(w - r * 2);
+  var nBottom = holesAlong(w - r * 2);
+  var nLeft = holesAlong(h - r * 2);
+  var nRight = holesAlong(h - r * 2);
+
+  // Recompute actual spacing to center holes
+  var spH = (w - r * 2) / nTop;
+  var spV = (h - r * 2) / nLeft;
+
+  // Start at top-left corner arc end point
+  ctx.moveTo(x + r, y);
+
+  // Top edge: left to right, holes punched upward (arc going outward = upward = below center)
+  for (var i = 0; i < nTop; i++) {
+    var cx2 = x + r + spH * (i + 0.5);
+    var prevX = (i === 0) ? x + r : x + r + spH * (i - 0.5) + holeR;
+    ctx.lineTo(cx2 - holeR, y);
+    ctx.arc(cx2, y, holeR, Math.PI, 0, false);
+  }
+  ctx.lineTo(x + w - r, y);
+
+  // Top-right corner
+  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
+
+  // Right edge: top to bottom, holes punched rightward
+  for (var i = 0; i < nRight; i++) {
+    var cy2 = y + r + spV * (i + 0.5);
+    ctx.lineTo(x + w, cy2 - holeR);
+    ctx.arc(x + w, cy2, holeR, -Math.PI / 2 * 0, Math.PI / 2 * (-1), true);
+    // arc from -PI/2 clockwise: outward means we go right (+x direction)
+  }
+  ctx.lineTo(x + w, y + h - r);
+
+  // Bottom-right corner
+  ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
+
+  // Bottom edge: right to left, holes punched downward
+  for (var i = nBottom - 1; i >= 0; i--) {
+    var cx2 = x + r + spH * (i + 0.5);
+    ctx.lineTo(cx2 + holeR, y + h);
+    ctx.arc(cx2, y + h, holeR, 0, Math.PI, false);
+  }
+  ctx.lineTo(x + r, y + h);
+
+  // Bottom-left corner
+  ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
+
+  // Left edge: bottom to top, holes punched leftward
+  for (var i = nLeft - 1; i >= 0; i--) {
+    var cy2 = y + r + spV * (i + 0.5);
+    ctx.lineTo(x, cy2 + holeR);
+    ctx.arc(x, cy2, holeR, Math.PI / 2, -Math.PI / 2, false);
+  }
+  ctx.lineTo(x, y + r);
+
+  // Top-left corner
+  ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2, false);
+  ctx.closePath();
+}
+
+function render(cityName, lat, lon, geojson) {
+  ctx.clearRect(0, 0, W, H);
+
+  // Stamp dimensions
+  var margin = 30;
+  var sx = margin, sy = margin;
+  var sw = W - margin * 2, sh = H - margin * 2;
+  var cornerR = 18;
+  var holeR = 8;
+
+  // City color based on lat/lon
+  var hue = (Math.abs(lat) * 7 + Math.abs(lon) * 3) % 360;
+  var stampColor = 'hsl(' + hue + ',55%,42%)';
+  var stampColorLight = 'hsla(' + hue + ',55%,42%,1)';
+
+  // ── Drop shadow ──
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.45)';
+  ctx.shadowBlur = 24;
+  ctx.shadowOffsetX = 4;
+  ctx.shadowOffsetY = 8;
+  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+  ctx.fillStyle = stampColor;
+  ctx.fill();
+  ctx.restore();
+
+  // ── Stamp fill + fabric texture (clipped) ──
+  ctx.save();
+  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+  ctx.clip();
+
+  // Base color
+  ctx.fillStyle = stampColor;
+  ctx.fillRect(sx, sy, sw, sh);
+
+  // Woven fabric texture: 4px grid, alternating row offset
+  var gridSize = 4;
+  for (var ty = sy; ty < sy + sh; ty += gridSize) {
+    var rowOdd = Math.floor((ty - sy) / gridSize) % 2 === 1;
+    for (var tx = sx; tx < sx + sw; tx += gridSize) {
+      var colOdd = Math.floor((tx - sx) / gridSize) % 2 === 1;
+      // Offset alternate rows by 2px
+      var dotX = rowOdd ? tx + 2 : tx;
+      var dotY = ty;
+      // Alternate between lighter and darker dots
+      if ((rowOdd && colOdd) || (!rowOdd && !colOdd)) {
+        ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      } else {
+        ctx.fillStyle = 'rgba(0,0,0,0.10)';
+      }
+      ctx.fillRect(dotX, dotY, 2, 2);
+    }
+  }
+
+  ctx.restore();
+
+  // ── City outline (embroidered) ──
+  if (geojson) {
+    var ring = [];
+    if (geojson.type === 'Polygon') {
+      ring = geojson.coordinates[0];
+    } else if (geojson.type === 'MultiPolygon') {
+      var best = null, bestLen = 0;
+      geojson.coordinates.forEach(function(poly) {
+        if (poly[0].length > bestLen) { bestLen = poly[0].length; best = poly[0]; }
+      });
+      ring = best || [];
+    }
+
+    if (ring.length > 2) {
+      ring = dp(ring, 0.05);
+
+      var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+      ring.forEach(function(p) {
+        if (p[0] < minX) minX = p[0];
+        if (p[0] > maxX) maxX = p[0];
+        if (p[1] < minY) minY = p[1];
+        if (p[1] > maxY) maxY = p[1];
+      });
+
+      // Scale to fill 65% of stamp width
+      var targetW = sw * 0.65;
+      var targetH = sh * 0.55;
+      var scX = targetW / (maxX - minX || 1);
+      var scY = targetH / (maxY - minY || 1);
+      var sc = Math.min(scX, scY);
+
+      var midLng = (minX + maxX) / 2;
+      var midLat = (minY + maxY) / 2;
+
+      // Center horizontally, place in upper 55% of stamp
+      var shapeCX = sx + sw / 2;
+      var shapeCY = sy + sh * 0.32;
+
+      var mapped = ring.map(function(p) {
+        return [
+          shapeCX + (p[0] - midLng) * sc,
+          shapeCY - (p[1] - midLat) * sc
+        ];
+      });
+
+      var shapeCmds = buildSmooth(mapped);
+
+      ctx.save();
+      drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+      ctx.clip();
+
+      // Fill interior with slightly lighter overlay
+      applyPath(shapeCmds, 0, 0);
+      ctx.fillStyle = 'rgba(255,255,255,0.12)';
+      ctx.fill();
+
+      // Embroidery stroke
+      embroideryStroke(function() {
+        applyPath(shapeCmds, 0, 0);
+      }, 4);
+
+      ctx.restore();
+    }
+  }
+
+  // ── Stamp text area ──
+  ctx.save();
+  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+  ctx.clip();
+
+  // "POSTAGE" at top
+  embroideryText('POSTAGE', sx + sw / 2, sy + 28, '700 11px Outfit,sans-serif', 'center');
+
+  // Decorative stitch lines above and below city name
+  var nameY = sy + sh * 0.80;
+  var lineHalfW = sw * 0.35;
+  var lineCX = sx + sw / 2;
+
+  // Line above city name
+  var lineAboveY = nameY - 28;
+  embroideryStroke(function() {
+    ctx.beginPath();
+    ctx.moveTo(lineCX - lineHalfW, lineAboveY);
+    ctx.lineTo(lineCX + lineHalfW, lineAboveY);
+  }, 2);
+
+  // Line below city name
+  var lineBelowY = nameY + 16;
+  embroideryStroke(function() {
+    ctx.beginPath();
+    ctx.moveTo(lineCX - lineHalfW, lineBelowY);
+    ctx.lineTo(lineCX + lineHalfW, lineBelowY);
+  }, 2);
+
+  // City name
+  var displayName = cityName.toUpperCase();
+  var fontSize = displayName.length > 14 ? 22 : displayName.length > 10 ? 27 : 32;
+  embroideryText(displayName, sx + sw / 2, nameY, '800 ' + fontSize + 'px Outfit,sans-serif', 'center');
+
+  // "2025" bottom right
+  embroideryText('2025', sx + sw - 18, sy + sh - 14, '400 10px Outfit,sans-serif', 'right');
+
+  ctx.restore();
+
+  // ── Stamp white border stroke (perforated outline) ──
+  ctx.save();
+  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1.5;
+  ctx.stroke();
+  ctx.restore();
+
+  document.getElementById('canvas-wrap').style.display = 'flex';
+  setStatus('✅  ' + cityName);
+}
+
+genBtn.addEventListener('click', go);
+document.getElementById('dl-btn').addEventListener('click', function() {
+  var a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = 'citybadge.png';
+  a.click();
 });
 </script>
 </body>
