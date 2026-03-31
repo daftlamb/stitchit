@@ -200,36 +200,51 @@ var morandiColors = [
 
 // ── Stamp perforation: draw rect path with inward semicircle notches ──
 function drawStampShape(x, y, w, h, cornerR, holeR) {
-  var sp = holeR * 3.0; // spacing between hole centers
+  var pad = holeR * 1.8; // corner clear zone — no holes within this distance of corner
+  var sp = holeR * 3.0;  // spacing between hole centers
+
+  // Distribute n holes evenly between pad...(len-pad)
+  function makeHoles(len) {
+    var avail = len - pad * 2;
+    var n = Math.max(1, Math.round(avail / sp));
+    var arr = [];
+    for (var i = 0; i < n; i++) arr.push(pad + (avail / (n + 1)) * (i + 1));
+    return arr;
+  }
+
+  var hx = makeHoles(w); // hole offsets along x axis
+  var hy = makeHoles(h); // hole offsets along y axis
+
   ctx.beginPath();
-  // Top edge: left→right, holes bite downward (center on top edge, arc goes PI→0 CW = upward bump outside = inward bite)
-  ctx.moveTo(x + holeR, y);
-  var nx = Math.round((w - holeR) / sp);
-  for (var i = 0; i < nx; i++) {
-    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
-    if (i > 0) ctx.lineTo(cx - holeR, y);
-    // bite inward (downward into stamp): center at (cx,y), arc from PI to 0 counterclockwise
+  ctx.moveTo(x, y);
+
+  // Top edge L→R
+  for (var i = 0; i < hx.length; i++) {
+    var cx = x + hx[i];
+    ctx.lineTo(cx - holeR, y);
     ctx.arc(cx, y, holeR, Math.PI, 0, true);
   }
   ctx.lineTo(x + w, y);
-  // Right edge: top→bottom, holes bite leftward
-  var ny = Math.round((h - holeR) / sp);
-  for (var i = 0; i < ny; i++) {
-    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
+
+  // Right edge T→B
+  for (var i = 0; i < hy.length; i++) {
+    var cy = y + hy[i];
     ctx.lineTo(x + w, cy - holeR);
     ctx.arc(x + w, cy, holeR, Math.PI * 1.5, Math.PI * 0.5, true);
   }
   ctx.lineTo(x + w, y + h);
-  // Bottom edge: right→left, holes bite upward
-  for (var i = nx - 1; i >= 0; i--) {
-    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
+
+  // Bottom edge R→L
+  for (var i = hx.length - 1; i >= 0; i--) {
+    var cx = x + hx[i];
     ctx.lineTo(cx + holeR, y + h);
     ctx.arc(cx, y + h, holeR, 0, Math.PI, true);
   }
   ctx.lineTo(x, y + h);
-  // Left edge: bottom→top, holes bite rightward
-  for (var i = ny - 1; i >= 0; i--) {
-    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
+
+  // Left edge B→T
+  for (var i = hy.length - 1; i >= 0; i--) {
+    var cy = y + hy[i];
     ctx.lineTo(x, cy + holeR);
     ctx.arc(x, cy, holeR, Math.PI * 0.5, Math.PI * 1.5, true);
   }
