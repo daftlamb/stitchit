@@ -314,7 +314,7 @@ function drawOutline(geojson,IR){
   });
 
   // Large scale — city crops out of circle intentionally
-  var scX=(IR*3.6)/(maxX-minX||1), scY=(IR*3.6)/(maxY-minY||1);
+  var scX=(IR*2.2)/(maxX-minX||1), scY=(IR*2.2)/(maxY-minY||1);
   var sc=Math.min(scX,scY);
   var midLng=(minX+maxX)/2, midLat=(minY+maxY)/2;
   var offY=-IR*0.06; // slight upward
