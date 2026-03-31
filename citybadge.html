@@ -355,6 +355,7 @@ function embroideryText(text, x, y, font, align) {
       if(a<60) continue;
       var px=ox+gx+grid/2, py=oy+gy+grid/2;
       var s=sz*0.5;
+      var tidx=gy*100+gx;
       var jx = px + (seededRand(tidx)*2-1)*0.6;
       var jy = py + (seededRand(tidx+0.5)*2-1)*0.6;
       var ang = (seededRand(tidx+1.1)*2-1)*0.15;
