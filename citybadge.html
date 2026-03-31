@@ -555,7 +555,7 @@ function render(cityName, lat, lon, geojson) {
     // place in bottom empty zone or side zone
     var r0 = Math.floor(textEndRow + srand() * (mapEndRow - textEndRow));
     var c0 = 6 + Math.floor(srand() * (COLS - 12));
-    var len = 4 + Math.floor(srand() * 8); // 4-11 cells
+    var len = 2 + Math.floor(srand() * 9); // 4-11 cells
     var dx = 1, dy = 0; // horizontal only
     for (var s = 0; s < len * 2; s++) {
       var gc = Math.round(c0 + dx * s * 0.5);
