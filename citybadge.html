@@ -436,14 +436,17 @@ function render(cityName, lat, lon, geojson) {
     }
   });
   lines = finalLines;
-  var fontSize = 26;
-  var lineHeight = fontSize + 10;
-  // Safety: ensure longest line fits within 88% of stamp width
-  // Outfit 800 at Npx: approx charWidth = N * 0.62
+  var fontSize = 38;
+  var lineHeight = fontSize + 12;
+  // Measure actual text width on offscreen canvas, shrink until fits
   var maxLineLen = lines.reduce(function(m, l) { return Math.max(m, l.length); }, 0);
-  while (fontSize > 12 && maxLineLen * fontSize * 0.62 > stampW * 0.88) {
+  var _mc = document.createElement('canvas').getContext('2d');
+  while (fontSize > 14) {
+    _mc.font = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
+    var maxW = lines.reduce(function(m, l) { return Math.max(m, _mc.measureText(l).width); }, 0);
+    if (maxW <= stampW * 0.84) break;
     fontSize -= 2;
-    lineHeight = fontSize + 10;
+    lineHeight = fontSize + 12;
   }
 
   // ── A. Rasterize city outline onto grid ──
