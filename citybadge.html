@@ -471,7 +471,7 @@ function render(cityName, lat, lon, geojson) {
   });
   lines = finalLines;
   // bitmap font: single line, no font-size logic needed
-  var textZoneH = CELL * (6 + BF_H + 4); // border clearance + glyph rows + gap
+  var textZoneH = CELL * (8 + BF_H + 4); // border clearance + glyph rows + gap
 
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
@@ -498,7 +498,7 @@ function render(cityName, lat, lon, geojson) {
       });
 
       // Target area: below text zone (top ~130px of stamp), centered
-      var textZoneH = CELL * (6 + BF_H + 4);
+      var textZoneH = CELL * (8 + BF_H + 4);
       var outlineAreaW = stampW * 0.72;
       var outlineAreaH = stampH - textZoneH - 20;
       var scX = outlineAreaW / (maxX - minX || 1);
@@ -529,7 +529,7 @@ function render(cityName, lat, lon, geojson) {
 
   // ── B. Text: bitmap font, centered ──
   var textCenterCol = Math.floor(COLS / 2);
-  var textBaseRow = 6; // rows from stamp top: clear outer(0-1) + gap(2-3) + inner(4) + padding(5)
+  var textBaseRow = 8; // rows from stamp top: clear outer(0-1) + gap(2-3) + inner(4) + padding(5)
   drawBitmapText(lines[0], grid, COLS, ROWS, textCenterCol, textBaseRow, 1);
 
   // Separator line just below bitmap text
