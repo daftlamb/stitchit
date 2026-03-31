@@ -239,19 +239,18 @@ function drawStampShape(x, y, w, h, cornerR, holeR) {
 
 // ── Draw stitch-style stroke: 3 layers with dashed highlight for thread feel ──
 // ── Stitch unit drawing (cross or V) along a sampled path ──
-function stitchAlongPath(pts, stitchSize, mode){
-  // mode: 'cross' or 'v'
+function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
   if(pts.length<2) return;
-  // Build cumulative distances, sample every stitchSize px
   var total=0, dists=[0];
   for(var i=1;i<pts.length;i++){
     total+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
     dists.push(total);
   }
-  var gap=stitchSize*1.4;
+  var gap=stitchSize*1.5;
   var s=stitchSize*0.5;
+  ctx.strokeStyle=strokeStyle; ctx.lineWidth=lineWidth;
+  ctx.lineJoin='round'; ctx.lineCap='round';
   for(var d=gap/2;d<total;d+=gap){
-    // Find interpolated position + tangent
     var seg=0;
     for(var k=1;k<dists.length;k++){if(dists[k]>=d){seg=k;break;}}
     var t=(d-dists[seg-1])/(dists[seg]-dists[seg-1]||1);
@@ -259,71 +258,52 @@ function stitchAlongPath(pts, stitchSize, mode){
     var py=pts[seg-1][1]+(pts[seg][1]-pts[seg-1][1])*t;
     var tx=pts[seg][0]-pts[seg-1][0], ty=pts[seg][1]-pts[seg-1][1];
     var tlen=Math.hypot(tx,ty)||1; tx/=tlen; ty/=tlen;
-    var nx=-ty, ny=tx; // normal
-    // Draw stitch unit
-    ctx.save();
-    ctx.translate(px,py);
+    var nx=-ty, ny=tx;
+    ctx.beginPath();
     if(mode==='cross'){
-      // X cross: two diagonal lines
-      ctx.beginPath();
-      ctx.moveTo(-s*tx-s*nx, -s*ty-s*ny);
-      ctx.lineTo( s*tx+s*nx,  s*ty+s*ny);
-      ctx.moveTo(-s*tx+s*nx, -s*ty+s*ny);
-      ctx.lineTo( s*tx-s*nx,  s*ty-s*ny);
+      // X cross aligned to path tangent + normal
+      ctx.moveTo(px+(-s*tx-s*nx), py+(-s*ty-s*ny));
+      ctx.lineTo(px+( s*tx+s*nx), py+( s*ty+s*ny));
+      ctx.moveTo(px+(-s*tx+s*nx), py+(-s*ty+s*ny));
+      ctx.lineTo(px+( s*tx-s*nx), py+( s*ty-s*ny));
     } else {
-      // V shape: two lines meeting at bottom
-      ctx.beginPath();
-      ctx.moveTo(-s*tx-s*0.5*nx, -s*ty-s*0.5*ny);
-      ctx.lineTo(0, s*0.3*ny+0);
-      ctx.moveTo( s*tx-s*0.5*nx,  s*ty-s*0.5*ny);
-      ctx.lineTo(0, s*0.3*ny+0);
+      // V shape
+      ctx.moveTo(px+(-s*nx), py+(-s*ny));
+      ctx.lineTo(px, py+(s*0.4));
+      ctx.moveTo(px+( s*nx), py+( s*ny));
+      ctx.lineTo(px, py+(s*0.4));
     }
-    ctx.restore();
+    ctx.stroke();
   }
 }
 
-function embroideryStroke(drawFn, lw) {
+function stitchOutline(mapped, stitchSize){
+  var sz=stitchSize||10;
   // Shadow layer
-  ctx.save();
-  ctx.translate(1,1);
+  ctx.save(); ctx.translate(1,1.5);
+  stitchAlongPath(mapped, sz, 'cross', 'rgba(0,0,0,0.38)', sz*0.9);
+  ctx.restore();
+  // Main white crosses
+  stitchAlongPath(mapped, sz, 'cross', 'rgba(255,255,255,0.97)', sz*0.55);
+  // Highlight V stitches offset half a gap
+  ctx.save(); ctx.translate(0,-0.8);
+  stitchAlongPath(mapped, sz, 'v', 'rgba(255,255,255,0.55)', sz*0.32);
+  ctx.restore();
+}
+
+function embroideryStroke(drawFn, lw) {
+  ctx.save(); ctx.translate(1,1);
   drawFn();
-  ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=lw+2.5;
+  ctx.strokeStyle='rgba(0,0,0,0.28)'; ctx.lineWidth=lw+2;
   ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([]); ctx.stroke();
   ctx.restore();
-  // Main white stroke
   drawFn();
-  ctx.strokeStyle='rgba(255,255,255,0.93)'; ctx.lineWidth=lw;
-  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([]); ctx.stroke();
-  // Dashed stitch hint
-  ctx.save(); ctx.translate(0.3,0.3);
-  drawFn();
-  ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=lw*0.45;
-  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([5,2.5]); ctx.stroke();
-  ctx.setLineDash([]); ctx.restore();
+  ctx.strokeStyle='rgba(255,255,255,0.9)'; ctx.lineWidth=lw;
+  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.setLineDash([5,2]); ctx.stroke();
+  ctx.setLineDash([]);
 }
 
-// Stitch embroidery on a mapped ring of points
-function stitchOutline(mapped, stitchSize){
-  var sz=stitchSize||7;
-  // Shadow
-  ctx.save(); ctx.translate(1,1);
-  ctx.strokeStyle='rgba(0,0,0,0.32)'; ctx.lineWidth=sz*0.7;
-  ctx.lineJoin='round'; ctx.lineCap='round';
-  stitchAlongPath(mapped,sz,'cross');
-  ctx.stroke(); ctx.restore();
-  // Main cross stitches — white
-  ctx.strokeStyle='rgba(255,255,255,0.95)'; ctx.lineWidth=sz*0.45;
-  ctx.lineJoin='round'; ctx.lineCap='round';
-  stitchAlongPath(mapped,sz,'cross');
-  ctx.stroke();
-  // V stitches between — slightly offset
-  ctx.save(); ctx.translate(0,-1);
-  ctx.strokeStyle='rgba(255,255,255,0.5)'; ctx.lineWidth=sz*0.3;
-  stitchAlongPath(mapped,sz*1.2,'v');
-  ctx.stroke(); ctx.restore();
-}
 
-// ── Embroidery-style text layers with 3-layer emboss ──
 function embroideryText(text, x, y, font, align) {
   ctx.font = font;
   ctx.textAlign = align || 'center';
