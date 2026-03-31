@@ -97,6 +97,13 @@ function go() {
   .then(function(data) {
     if (!data || !data[0]) throw new Error('City not found');
     var d = data[0];
+    // Level check: only accept city/town/administrative boundaries
+    var okTypes = ['city','town','administrative','municipality','borough','district'];
+    var addressType = d.addresstype || d.type || '';
+    var placeClass = d.class || '';
+    if (placeClass === 'place' && ['village','hamlet','suburb','neighbourhood','quarter','isolated_dwelling'].indexOf(d.type) >= 0) {
+      throw new Error('Too specific — please enter a city or region name');
+    }
     var label = d.display_name.split(',')[0].trim();
     var lat = parseFloat(d.lat), lon = parseFloat(d.lon);
     var geo = d.geojson || null;
@@ -324,20 +331,30 @@ function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy, l
   }
 }
 
-// ── Mark border ring cells as type 2 ──
-function rasterizeBorder(grid, COLS, ROWS, rings) {
-  rings = rings || 2;
-  for (var r = 0; r < rings; r++) {
-    // top & bottom rows
-    for (var c = 0; c < COLS; c++) {
-      grid[r * COLS + c] = 2;
-      grid[(ROWS - 1 - r) * COLS + c] = 2;
-    }
-    // left & right columns
-    for (var row = 0; row < ROWS; row++) {
-      grid[row * COLS + r] = 2;
-      grid[row * COLS + (COLS - 1 - r)] = 2;
-    }
+// ── Mark double border ring: outer ring (type 2) + inner ring (type 2), gap in between ──
+function rasterizeBorder(grid, COLS, ROWS) {
+  // Outer ring (row 0-1, col 0-1)
+  for (var c = 0; c < COLS; c++) {
+    grid[0 * COLS + c] = 2;
+    grid[1 * COLS + c] = 2;
+    grid[(ROWS-1) * COLS + c] = 2;
+    grid[(ROWS-2) * COLS + c] = 2;
+  }
+  for (var rr = 0; rr < ROWS; rr++) {
+    grid[rr * COLS + 0] = 2;
+    grid[rr * COLS + 1] = 2;
+    grid[rr * COLS + (COLS-1)] = 2;
+    grid[rr * COLS + (COLS-2)] = 2;
+  }
+  // Inner ring (gap of 1 cell = row 2/ROWS-3, col 2/COLS-3) → row 3/ROWS-4
+  var inner = 4; // 1 gap cell after outer 2
+  for (var c = inner; c < COLS-inner; c++) {
+    if(grid[inner * COLS + c] === 0) grid[inner * COLS + c] = 2;
+    if(grid[(ROWS-1-inner) * COLS + c] === 0) grid[(ROWS-1-inner) * COLS + c] = 2;
+  }
+  for (var rr = inner; rr < ROWS-inner; rr++) {
+    if(grid[rr * COLS + inner] === 0) grid[rr * COLS + inner] = 2;
+    if(grid[rr * COLS + (COLS-1-inner)] === 0) grid[rr * COLS + (COLS-1-inner)] = 2;
   }
 }
 
@@ -413,7 +430,7 @@ function render(cityName, lat, lon, geojson) {
     }
 
     if (ring.length > 2) {
-      ring = dp(ring, 0.05);
+      ring = dp(ring, 0.02);
 
       var minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
       ring.forEach(function(p) {
