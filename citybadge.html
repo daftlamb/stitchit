@@ -269,8 +269,8 @@ function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy, l
   tmpCtx.font = font;
   if(letterSpacing) tmpCtx.letterSpacing = letterSpacing;
   var met = tmpCtx.measureText(text);
-  var tw = Math.ceil(met.width) + 80;
-  var th = 140;
+  var tw = Math.ceil(met.width) + 120;
+  var th = 180;
   tmp.width = tw;
   tmp.height = th;
   tmpCtx.font = font;
@@ -449,7 +449,11 @@ function render(cityName, lat, lon, geojson) {
 
   // ── B. Rasterize city name text ──
   var displayName = cityName.toUpperCase();
-  var fontSize = displayName.length > 14 ? 28 : displayName.length > 10 ? 34 : 40;
+  // Press Start 2P: char width ≈ fontSize * 0.7 (approx), fit within 85% of stamp width
+  var maxTextW = stampW * 0.85;
+  var fontSize = 40;
+  // Shrink until it fits: each char ≈ fontSize * 0.75 wide including spacing
+  while (fontSize > 14 && displayName.length * fontSize * 0.75 > maxTextW) fontSize -= 2;
   var textFont = '400 ' + fontSize + 'px "Press Start 2P",monospace';
   var textCX = ox + stampW / 2;
   var textCY = oy + 72;
