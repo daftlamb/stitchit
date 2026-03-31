@@ -231,7 +231,8 @@ var morandiColors = [
 ];
 
 // ── CELL-based grid system ──
-var CELL = 6; // px per grid cell
+var CELL = 6;  // px per grid cell (map outline, border)
+var TCELL = 3; // px per text grid cell (finer detail for letterforms)
 
 // Draw a single cross-stitch × at grid position (col, row) given stamp origin (ox, oy)
 // type: 1=outline/text, 2=border, 3=separator line
@@ -269,6 +270,26 @@ function drawCross(col, row, ox, oy, type, color) {
   ctx.moveTo(cx-a2x-0.4, cy-a2y-0.4); ctx.lineTo(cx+a2x-0.4, cy+a2y-0.4);
   ctx.stroke();
   ctx.restore();
+}
+
+// ── Small cross for text grid (TCELL=3px) ──
+function drawCrossSmall(col, row, ox, oy, color) {
+  var cx = ox + col * TCELL + TCELL / 2;
+  var cy = oy + row * TCELL + TCELL / 2;
+  var wobbleAngle = Math.sin(col * 127.1 + row * 311.7) * 0.10;
+  var arm = TCELL * 0.44;
+  var cosA = Math.cos(wobbleAngle), sinA = Math.sin(wobbleAngle);
+  var a1x = arm*0.7071*cosA - arm*0.7071*sinA;
+  var a1y = arm*0.7071*sinA + arm*0.7071*cosA;
+  var a2x = arm*0.7071*cosA + arm*0.7071*sinA;
+  var a2y = arm*0.7071*sinA - arm*0.7071*cosA;
+  ctx.strokeStyle = color || 'rgba(255,255,255,0.96)';
+  ctx.lineWidth = 1.2;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(cx-a1x, cy-a1y); ctx.lineTo(cx+a1x, cy+a1y);
+  ctx.moveTo(cx-a2x, cy-a2y); ctx.lineTo(cx+a2x, cy+a2y);
+  ctx.stroke();
 }
 
 // ── Rasterize a polyline onto grid cells ──
@@ -516,16 +537,19 @@ function render(cityName, lat, lon, geojson) {
     }
   }
 
-  // ── B. Rasterize city name text ──
-    // ── B. Rasterize city name text (lines/fontSize pre-computed above) ──
+  // ── B. Text: separate fine grid (TCELL=3px) ──
   var textFont = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
   var textCX = ox + stampW / 2;
   var totalH = lines.length * lineHeight;
   var textZoneH = 30 + lines.length * lineHeight + 20;
-  // textStartY: clear both border rings (outer 2 + gap 1 + inner 1 = 4 cells = 24px) + padding
   var textStartY = oy + CELL * 6;
+
+  // Build fine text grid
+  var TCOLS = Math.floor(stampW / TCELL);
+  var TROWS = Math.floor(stampH / TCELL);
+  var tgrid = new Uint8Array(TCOLS * TROWS);
   lines.forEach(function(line, li) {
-    rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
+    rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, tgrid, TCOLS, TROWS, ox, oy, '0.1em');
   });
 
   // Separator line just below text block, centered
@@ -575,12 +599,22 @@ function render(cityName, lat, lon, geojson) {
   roundRect(ctx, ox, oy, stampW, stampH, cornerR);
   ctx.clip();
 
+  // Map outline + border (CELL=6 grid)
   for (var row = 0; row < ROWS; row++) {
     for (var col = 0; col < COLS; col++) {
       var cellVal = grid[row * COLS + col];
       if (cellVal > 0) {
         var col3 = cellVal === 2 ? color3 : (cellVal === 3 ? color2 : color1);
         drawCross(col, row, ox, oy, cellVal, col3);
+      }
+    }
+  }
+
+  // Text (TCELL=3 fine grid)
+  for (var trow = 0; trow < TROWS; trow++) {
+    for (var tcol = 0; tcol < TCOLS; tcol++) {
+      if (tgrid[trow * TCOLS + tcol] > 0) {
+        drawCrossSmall(tcol, trow, ox, oy, color1);
       }
     }
   }
