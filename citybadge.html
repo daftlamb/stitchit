@@ -241,14 +241,20 @@ function render(cityName,lat,lon,geojson){
       shapeCmds=buildSmooth(mapped);
 
       ctx.save();
-      // Clip to circle
+      // Clip 1: inner circle
       ctx.beginPath();
       ctx.arc(CX,CY,IR,0,Math.PI*2);
       ctx.clip();
 
-      // Second clip: above band line1 (use simple horizontal cut)
+      // Clip 2: above band line1 — follow the quadratic curve exactly
       ctx.beginPath();
-      ctx.rect(CX-IR-10, CY-IR-10, (IR+10)*2, (line1Y-(CY-IR-10)));
+      // Top of circle to left edge of band
+      ctx.moveTo(CX-IR, CY-IR);
+      ctx.lineTo(CX+IR, CY-IR);
+      ctx.lineTo(CX+IR, line1Y);
+      // Trace band line1 curve backwards (right→left)
+      ctx.quadraticCurveTo(CX, line1Y-IR*0.06, CX-IR, line1Y);
+      ctx.closePath();
       ctx.clip();
 
       // Random fill inside shape
