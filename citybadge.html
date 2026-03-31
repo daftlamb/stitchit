@@ -184,40 +184,144 @@ function applyPath(cmds, dx, dy) {
   });
 }
 
-// Draw an embroidery-style stroke: shadow layer + main white + highlight
+// ── Morandi palette (muted, grayish, elegant) ──
+var morandiColors = [
+  [210, 25, 62],
+  [340, 20, 65],
+  [30,  28, 63],
+  [160, 22, 58],
+  [270, 18, 60],
+  [15,  30, 60],
+  [200, 20, 55],
+  [50,  25, 62],
+  [130, 20, 57],
+  [300, 15, 62]
+];
+
+// ── Correct stamp perforation: rectangle with semicircles BITTEN INWARD ──
+// Each perforation arc bows INTO the stamp body (inward notch)
+function drawStampShape(x, y, w, h, cornerR, holeR) {
+  var spacing = holeR * 3.2;
+
+  function countHoles(len) {
+    var n = Math.floor((len - cornerR * 2) / spacing);
+    if (n < 1) n = 1;
+    return n;
+  }
+
+  var nTop    = countHoles(w);
+  var nBottom = countHoles(w);
+  var nLeft   = countHoles(h);
+  var nRight  = countHoles(h);
+
+  // Recompute actual spacing so holes are evenly centered
+  var spTop    = (w - cornerR * 2) / nTop;
+  var spBottom = (w - cornerR * 2) / nBottom;
+  var spLeft   = (h - cornerR * 2) / nLeft;
+  var spRight  = (h - cornerR * 2) / nRight;
+
+  ctx.beginPath();
+
+  // ── Start: top-left corner (after arc) → move right along top edge ──
+  // top-left corner arc
+  ctx.moveTo(x + cornerR, y + cornerR);
+  ctx.arc(x + cornerR, y + cornerR, cornerR, Math.PI, Math.PI * 1.5, false);
+  // now at (x+cornerR, y), heading right
+
+  // TOP edge — holes bitten downward (arc center on edge y=y, bows into stamp = downward)
+  for (var i = 0; i < nTop; i++) {
+    var hcx = x + cornerR + spTop * (i + 0.5);
+    ctx.lineTo(hcx - holeR, y);
+    // Arc bows INTO stamp (downward). Center at (hcx, y), from PI to 0, anticlockwise=false
+    // PI = left side of hole, 0 = right side, and the arc bulges upward by default.
+    // To bite INward (downward into stamp): go from 0 to PI anticlockwise (true)
+    ctx.arc(hcx, y, holeR, 0, Math.PI, true);
+  }
+  ctx.lineTo(x + w - cornerR, y);
+
+  // top-right corner arc
+  ctx.arc(x + w - cornerR, y + cornerR, cornerR, Math.PI * 1.5, 0, false);
+  // now at (x+w, y+cornerR), heading down
+
+  // RIGHT edge — holes bitten leftward (inward)
+  for (var i = 0; i < nRight; i++) {
+    var hcy = y + cornerR + spRight * (i + 0.5);
+    ctx.lineTo(x + w, hcy - holeR);
+    // Arc center at (x+w, hcy), bite inward (leftward): from -PI/2 to PI/2, anticlockwise
+    ctx.arc(x + w, hcy, holeR, Math.PI * 1.5, Math.PI * 0.5, true);
+  }
+  ctx.lineTo(x + w, y + h - cornerR);
+
+  // bottom-right corner arc
+  ctx.arc(x + w - cornerR, y + h - cornerR, cornerR, 0, Math.PI * 0.5, false);
+  // now at (x+w-cornerR, y+h), heading left
+
+  // BOTTOM edge — holes bitten upward (inward), traverse right to left
+  for (var i = nBottom - 1; i >= 0; i--) {
+    var hcx = x + cornerR + spBottom * (i + 0.5);
+    ctx.lineTo(hcx + holeR, y + h);
+    // Arc center at (hcx, y+h), bite inward (upward): from 0 to PI, anticlockwise=false gives upward bump? 
+    // false = clockwise in canvas coords. Center at bottom edge, going left: from 0 to PI clockwise
+    ctx.arc(hcx, y + h, holeR, 0, Math.PI, false);
+  }
+  ctx.lineTo(x + cornerR, y + h);
+
+  // bottom-left corner arc
+  ctx.arc(x + cornerR, y + h - cornerR, cornerR, Math.PI * 0.5, Math.PI, false);
+  // now at (x, y+h-cornerR), heading up
+
+  // LEFT edge — holes bitten rightward (inward), traverse bottom to top
+  for (var i = nLeft - 1; i >= 0; i--) {
+    var hcy = y + cornerR + spLeft * (i + 0.5);
+    ctx.lineTo(x, hcy + holeR);
+    // Arc center at (x, hcy), bite inward (rightward): from PI/2 to 3PI/2, anticlockwise=false
+    ctx.arc(x, hcy, holeR, Math.PI * 0.5, Math.PI * 1.5, false);
+  }
+  ctx.lineTo(x, y + cornerR);
+
+  // back to start: close with top-left corner (already drawn above via moveTo arc)
+  ctx.closePath();
+}
+
+// ── Draw stitch-style stroke: 3 layers with dashed highlight for thread feel ──
 function embroideryStroke(drawFn, lw) {
-  // Layer 1: dark shadow
+  // Layer 1: dark shadow offset
   ctx.save();
   ctx.translate(1, 1);
   drawFn();
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = lw + 2;
+  ctx.strokeStyle = 'rgba(0,0,0,0.28)';
+  ctx.lineWidth = lw + 2.5;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  ctx.setLineDash([]);
   ctx.stroke();
   ctx.restore();
 
-  // Layer 2: main white
+  // Layer 2: main white stroke
   drawFn();
-  ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.93)';
   ctx.lineWidth = lw;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  ctx.setLineDash([]);
   ctx.stroke();
 
-  // Layer 3: highlight offset
+  // Layer 3: highlight with slight jitter for thread volume
   ctx.save();
-  ctx.translate(-0.5, -0.5);
+  ctx.translate(0.3, 0.3);
   drawFn();
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-  ctx.lineWidth = lw * 0.4;
+  ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+  ctx.lineWidth = lw * 0.45;
   ctx.lineJoin = 'round';
   ctx.lineCap = 'round';
+  // Dashed highlight hints at individual stitches
+  ctx.setLineDash([6, 2]);
   ctx.stroke();
+  ctx.setLineDash([]);
   ctx.restore();
 }
 
-// Draw embroidery-style text layers
+// ── Embroidery-style text layers with 3-layer emboss ──
 function embroideryText(text, x, y, font, align) {
   ctx.font = font;
   ctx.textAlign = align || 'center';
@@ -236,88 +340,13 @@ function embroideryText(text, x, y, font, align) {
   ctx.fillStyle = 'rgba(255,255,255,0.95)';
   ctx.fillText(text, x, y);
 
-  // Layer 3: white stroke highlight
+  // Layer 3: white stroke highlight with slight offset for thread volume
   ctx.save();
-  ctx.translate(-0.5, -0.5);
+  ctx.translate(-0.4, -0.4);
   ctx.strokeStyle = 'rgba(255,255,255,0.5)';
   ctx.lineWidth = 1.5;
   ctx.strokeText(text, x, y);
   ctx.restore();
-}
-
-// Draw the stamp perforated edge (rounded rectangle with semicircle perforations)
-function drawStampShape(x, y, w, h, r, holeR) {
-  // Perforated stamp edge: draw the outer rounded rect minus semicircle bites
-  // We'll clip to inside the stamp using a path that traces the perforated edge
-  // The stamp area is defined as: outer rounded rect with semicircle arcs punched out along perimeter
-  var spacing = holeR * 2 + holeR * 0.7; // center-to-center spacing
-  ctx.beginPath();
-
-  // Helper: count holes along a side length
-  function holesAlong(len) {
-    var count = Math.floor(len / spacing);
-    if (count % 2 === 0) count--;
-    return Math.max(1, count);
-  }
-
-  var nTop = holesAlong(w - r * 2);
-  var nBottom = holesAlong(w - r * 2);
-  var nLeft = holesAlong(h - r * 2);
-  var nRight = holesAlong(h - r * 2);
-
-  // Recompute actual spacing to center holes
-  var spH = (w - r * 2) / nTop;
-  var spV = (h - r * 2) / nLeft;
-
-  // Start at top-left corner arc end point
-  ctx.moveTo(x + r, y);
-
-  // Top edge: left to right, holes punched upward (arc going outward = upward = below center)
-  for (var i = 0; i < nTop; i++) {
-    var cx2 = x + r + spH * (i + 0.5);
-    var prevX = (i === 0) ? x + r : x + r + spH * (i - 0.5) + holeR;
-    ctx.lineTo(cx2 - holeR, y);
-    ctx.arc(cx2, y, holeR, Math.PI, 0, false);
-  }
-  ctx.lineTo(x + w - r, y);
-
-  // Top-right corner
-  ctx.arc(x + w - r, y + r, r, -Math.PI / 2, 0, false);
-
-  // Right edge: top to bottom, holes punched rightward
-  for (var i = 0; i < nRight; i++) {
-    var cy2 = y + r + spV * (i + 0.5);
-    ctx.lineTo(x + w, cy2 - holeR);
-    ctx.arc(x + w, cy2, holeR, -Math.PI / 2 * 0, Math.PI / 2 * (-1), true);
-    // arc from -PI/2 clockwise: outward means we go right (+x direction)
-  }
-  ctx.lineTo(x + w, y + h - r);
-
-  // Bottom-right corner
-  ctx.arc(x + w - r, y + h - r, r, 0, Math.PI / 2, false);
-
-  // Bottom edge: right to left, holes punched downward
-  for (var i = nBottom - 1; i >= 0; i--) {
-    var cx2 = x + r + spH * (i + 0.5);
-    ctx.lineTo(cx2 + holeR, y + h);
-    ctx.arc(cx2, y + h, holeR, 0, Math.PI, false);
-  }
-  ctx.lineTo(x + r, y + h);
-
-  // Bottom-left corner
-  ctx.arc(x + r, y + h - r, r, Math.PI / 2, Math.PI, false);
-
-  // Left edge: bottom to top, holes punched leftward
-  for (var i = nLeft - 1; i >= 0; i--) {
-    var cy2 = y + r + spV * (i + 0.5);
-    ctx.lineTo(x, cy2 + holeR);
-    ctx.arc(x, cy2, holeR, Math.PI / 2, -Math.PI / 2, false);
-  }
-  ctx.lineTo(x, y + r);
-
-  // Top-left corner
-  ctx.arc(x + r, y + r, r, Math.PI, -Math.PI / 2, false);
-  ctx.closePath();
 }
 
 function render(cityName, lat, lon, geojson) {
@@ -327,13 +356,14 @@ function render(cityName, lat, lon, geojson) {
   var margin = 30;
   var sx = margin, sy = margin;
   var sw = W - margin * 2, sh = H - margin * 2;
-  var cornerR = 18;
-  var holeR = 8;
+  var cornerR = 14;
+  var holeR = 7;
 
-  // City color based on lat/lon
-  var hue = (Math.abs(lat) * 7 + Math.abs(lon) * 3) % 360;
-  var stampColor = 'hsl(' + hue + ',55%,42%)';
-  var stampColorLight = 'hsla(' + hue + ',55%,42%,1)';
+  // ── Morandi color from lat/lon ──
+  var idx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
+  var mc = morandiColors[idx];
+  var stampH = mc[0], stampS = mc[1], stampL = mc[2];
+  var stampColor = 'hsl(' + stampH + ',' + stampS + '%,' + stampL + '%)';
 
   // ── Drop shadow ──
   ctx.save();
@@ -351,28 +381,41 @@ function render(cityName, lat, lon, geojson) {
   drawStampShape(sx, sy, sw, sh, cornerR, holeR);
   ctx.clip();
 
-  // Base color
+  // Base color fill
   ctx.fillStyle = stampColor;
   ctx.fillRect(sx, sy, sw, sh);
 
-  // Woven fabric texture: 4px grid, alternating row offset
-  var gridSize = 4;
+  // ── Fabric texture: 8px grid, checkerboard ±8% lightness rectangles ──
+  var gridSize = 8;
+  var cellDot = 3;
+  var lLight = Math.min(100, stampL + 8);
+  var lDark  = Math.max(0,   stampL - 8);
   for (var ty = sy; ty < sy + sh; ty += gridSize) {
-    var rowOdd = Math.floor((ty - sy) / gridSize) % 2 === 1;
+    var rowIdx = Math.floor((ty - sy) / gridSize);
     for (var tx = sx; tx < sx + sw; tx += gridSize) {
-      var colOdd = Math.floor((tx - sx) / gridSize) % 2 === 1;
-      // Offset alternate rows by 2px
-      var dotX = rowOdd ? tx + 2 : tx;
-      var dotY = ty;
-      // Alternate between lighter and darker dots
-      if ((rowOdd && colOdd) || (!rowOdd && !colOdd)) {
-        ctx.fillStyle = 'rgba(255,255,255,0.12)';
-      } else {
-        ctx.fillStyle = 'rgba(0,0,0,0.10)';
-      }
-      ctx.fillRect(dotX, dotY, 2, 2);
+      var colIdx = Math.floor((tx - sx) / gridSize);
+      var isLight = (rowIdx + colIdx) % 2 === 0;
+      ctx.fillStyle = isLight
+        ? 'hsl(' + stampH + ',' + stampS + '%,' + lLight + '%)'
+        : 'hsl(' + stampH + ',' + stampS + '%,' + lDark  + '%)';
+      var dotX = tx + (gridSize - cellDot) / 2;
+      var dotY = ty + (gridSize - cellDot) / 2;
+      ctx.fillRect(dotX, dotY, cellDot, cellDot);
     }
   }
+
+  // ── Diagonal weave lines at 45° ──
+  ctx.save();
+  ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+  ctx.lineWidth = 1;
+  var diag = sw + sh;
+  for (var d = -diag; d < diag; d += 12) {
+    ctx.beginPath();
+    ctx.moveTo(sx + d, sy);
+    ctx.lineTo(sx + d + sh, sy + sh);
+    ctx.stroke();
+  }
+  ctx.restore();
 
   ctx.restore();
 
@@ -400,7 +443,6 @@ function render(cityName, lat, lon, geojson) {
         if (p[1] > maxY) maxY = p[1];
       });
 
-      // Scale to fill 65% of stamp width
       var targetW = sw * 0.65;
       var targetH = sh * 0.55;
       var scX = targetW / (maxX - minX || 1);
@@ -410,7 +452,6 @@ function render(cityName, lat, lon, geojson) {
       var midLng = (minX + maxX) / 2;
       var midLat = (minY + maxY) / 2;
 
-      // Center horizontally, place in upper 55% of stamp
       var shapeCX = sx + sw / 2;
       var shapeCY = sy + sh * 0.32;
 
@@ -441,13 +482,26 @@ function render(cityName, lat, lon, geojson) {
     }
   }
 
+  // ── Inner border frame (18px inset, embroidery stitch style) ──
+  ctx.save();
+  drawStampShape(sx, sy, sw, sh, cornerR, holeR);
+  ctx.clip();
+
+  var fi = 18; // inset amount
+  embroideryStroke(function() {
+    ctx.beginPath();
+    ctx.rect(sx + fi, sy + fi, sw - fi * 2, sh - fi * 2);
+  }, 1.8);
+
+  ctx.restore();
+
   // ── Stamp text area ──
   ctx.save();
   drawStampShape(sx, sy, sw, sh, cornerR, holeR);
   ctx.clip();
 
   // "POSTAGE" at top
-  embroideryText('POSTAGE', sx + sw / 2, sy + 28, '700 11px Outfit,sans-serif', 'center');
+  embroideryText('POSTAGE', sx + sw / 2, sy + 32, '700 11px Outfit,sans-serif', 'center');
 
   // Decorative stitch lines above and below city name
   var nameY = sy + sh * 0.80;
@@ -476,11 +530,11 @@ function render(cityName, lat, lon, geojson) {
   embroideryText(displayName, sx + sw / 2, nameY, '800 ' + fontSize + 'px Outfit,sans-serif', 'center');
 
   // "2025" bottom right
-  embroideryText('2025', sx + sw - 18, sy + sh - 14, '400 10px Outfit,sans-serif', 'right');
+  embroideryText('2025', sx + sw - 22, sy + sh - 16, '400 10px Outfit,sans-serif', 'right');
 
   ctx.restore();
 
-  // ── Stamp white border stroke (perforated outline) ──
+  // ── Stamp perimeter outline (subtle) ──
   ctx.save();
   drawStampShape(sx, sy, sw, sh, cornerR, holeR);
   ctx.strokeStyle = 'rgba(255,255,255,0.18)';
