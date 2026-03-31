@@ -305,30 +305,43 @@ function embroideryStroke(drawFn, lw) {
 
 
 function embroideryText(text, x, y, font, align) {
-  ctx.font = font;
-  ctx.textAlign = align || 'center';
-  ctx.lineJoin = 'round';
-  ctx.lineCap = 'round';
-
-  // Layer 1: shadow
-  ctx.save();
-  ctx.translate(1, 1);
-  ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-  ctx.lineWidth = 6;
-  ctx.strokeText(text, x, y);
-  ctx.restore();
-
-  // Layer 2: main white fill
-  ctx.fillStyle = 'rgba(255,255,255,0.95)';
-  ctx.fillText(text, x, y);
-
-  // Layer 3: white stroke highlight with slight offset for thread volume
-  ctx.save();
-  ctx.translate(-0.4, -0.4);
-  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
-  ctx.lineWidth = 1.5;
-  ctx.strokeText(text, x, y);
-  ctx.restore();
+  // Render text to offscreen canvas, sample edge pixels, draw cross stitches
+  var sz = 5; // stitch size
+  var tmp = document.createElement('canvas');
+  // measure text
+  ctx.font = font; ctx.textAlign = align||'center';
+  var metrics = ctx.measureText(text);
+  var tw = Math.ceil(metrics.width) + sz*4;
+  var th = Math.ceil(metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) + sz*4;
+  tmp.width = tw; tmp.height = th;
+  var tc = tmp.getContext('2d');
+  tc.font = font; tc.textAlign = 'center'; tc.textBaseline = 'middle';
+  tc.fillStyle = '#fff';
+  tc.fillText(text, tw/2, th/2);
+  var imgd = tc.getImageData(0,0,tw,th).data;
+  // Build list of lit pixels, then place stitches on grid
+  var grid = sz; // one stitch per grid cell
+  var ox = x - tw/2, oy = y - th/2; // top-left origin in main canvas
+  for(var gy=0; gy<th; gy+=grid){
+    for(var gx=0; gx<tw; gx+=grid){
+      // sample center of cell
+      var cx2=Math.floor(gx+grid/2), cy2=Math.floor(gy+grid/2);
+      if(cx2>=tw||cy2>=th) continue;
+      var a=imgd[(cy2*tw+cx2)*4+3];
+      if(a<60) continue;
+      var px=ox+gx+grid/2, py=oy+gy+grid/2;
+      var s=sz*0.5;
+      // shadow
+      ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=sz*0.7;
+      ctx.lineJoin='round'; ctx.lineCap='round';
+      ctx.beginPath(); ctx.moveTo(px-s+1,py-s+1.5); ctx.lineTo(px+s+1,py+s+1.5);
+      ctx.moveTo(px+s+1,py-s+1.5); ctx.lineTo(px-s+1,py+s+1.5); ctx.stroke();
+      // main white cross
+      ctx.strokeStyle='rgba(255,255,255,0.97)'; ctx.lineWidth=sz*0.45;
+      ctx.beginPath(); ctx.moveTo(px-s,py-s); ctx.lineTo(px+s,py+s);
+      ctx.moveTo(px+s,py-s); ctx.lineTo(px-s,py+s); ctx.stroke();
+    }
+  }
 }
 
 function render(cityName, lat, lon, geojson) {
@@ -339,7 +352,7 @@ function render(cityName, lat, lon, geojson) {
   var sx = margin, sy = margin;
   var sw = W - margin * 2, sh = H - margin * 2;
   var cornerR = 14;
-  var holeR = 7;
+  var holeR = 14;
 
   // ── Morandi color from lat/lon ──
   var idx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
@@ -456,7 +469,7 @@ function render(cityName, lat, lon, geojson) {
       ctx.fill();
 
       // Stitch embroidery along outline points
-      stitchOutline(mapped, 10);
+      stitchOutline(mapped, 5);
 
       ctx.restore();
     }
@@ -482,8 +495,8 @@ function render(cityName, lat, lon, geojson) {
 
   // City name — top center, embroidery style
   var displayName = cityName.toUpperCase();
-  var fontSize = displayName.length > 14 ? 22 : displayName.length > 10 ? 27 : 32;
-  var nameY = sy + 60;
+  var fontSize = displayName.length > 14 ? 36 : displayName.length > 10 ? 44 : 52;
+  var nameY = sy + 72;
   embroideryText(displayName, sx + sw / 2, nameY, '800 ' + fontSize + 'px Outfit,sans-serif', 'center');
 
   // Thin stitch line below name
