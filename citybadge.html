@@ -37,17 +37,8 @@ canvas{display:block}
   </div>
   <button id="gen-btn">Make</button>
 </div>
-<div id="font-row" style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;justify-content:center">
-  <button class="font-btn active-font" data-font="Outfit">Outfit</button>
-  <button class="font-btn" data-font="Playfair Display">Playfair</button>
-  <button class="font-btn" data-font="DM Serif Display">DM Serif</button>
-  <button class="font-btn" data-font="Bebas Neue">Bebas</button>
-  <button class="font-btn" data-font="Tiny5">Tiny5</button>
-  <button class="font-btn" data-font="VT323">VT323</button>
-  <button class="font-btn" data-font="Silkscreen">Silkscreen</button>
-  <button class="font-btn" data-font="Pixelify Sans">Pixelify</button>
-</div>
-<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;font-size:12px;color:#3a3028">
+<div id="font-row" style="display:none"></div>
+<div style="display:none">
   <span>Size</span>
   <input id="size-slider" type="range" min="12" max="120" value="38" step="2" style="width:140px">
   <span id="size-val">38px</span>
@@ -297,42 +288,71 @@ function rasterizePath(pts, grid, COLS, ROWS, ox, oy, value) {
 }
 
 // ── Rasterize text onto grid via offscreen canvas ──
-function rasterizeText(text, font, centerX, centerY, grid, COLS, ROWS, ox, oy, letterSpacing) {
-  var tmp = document.createElement('canvas');
-  var tmpCtx = tmp.getContext('2d');
-  tmpCtx.font = font;
-  if(letterSpacing) tmpCtx.letterSpacing = letterSpacing;
-  var met = tmpCtx.measureText(text);
-  var tw = Math.ceil(met.width) + 120;
-  var th = 180;
-  tmp.width = tw;
-  tmp.height = th;
-  tmpCtx.font = font;
-  if(letterSpacing) tmpCtx.letterSpacing = letterSpacing;
-  tmpCtx.textAlign = 'center';
-  tmpCtx.textBaseline = 'middle';
-  tmpCtx.fillStyle = '#fff';
-  tmpCtx.fillText(text, tw / 2, th / 2);
+// ── Bitmap font 4×6 (each char = 4 cols × 6 rows of bits) ──
+var BFONT = {
+  'A':['0110','1001','1111','1001','1001','0000'],
+  'B':['1110','1001','1110','1001','1110','0000'],
+  'C':['0111','1000','1000','1000','0111','0000'],
+  'D':['1110','1001','1001','1001','1110','0000'],
+  'E':['1111','1000','1110','1000','1111','0000'],
+  'F':['1111','1000','1110','1000','1000','0000'],
+  'G':['0111','1000','1011','1001','0111','0000'],
+  'H':['1001','1001','1111','1001','1001','0000'],
+  'I':['0110','0010','0010','0010','0110','0000'],
+  'J':['0011','0001','0001','1001','0110','0000'],
+  'K':['1001','1010','1100','1010','1001','0000'],
+  'L':['1000','1000','1000','1000','1111','0000'],
+  'M':['1001','1111','1111','1001','1001','0000'],
+  'N':['1001','1101','1011','1001','1001','0000'],
+  'O':['0110','1001','1001','1001','0110','0000'],
+  'P':['1110','1001','1110','1000','1000','0000'],
+  'Q':['0110','1001','1001','1011','0111','0000'],
+  'R':['1110','1001','1110','1010','1001','0000'],
+  'S':['0111','1000','0110','0001','1110','0000'],
+  'T':['1110','0100','0100','0100','0100','0000'],
+  'U':['1001','1001','1001','1001','0110','0000'],
+  'V':['1001','1001','1001','0110','0110','0000'],
+  'W':['1001','1001','1111','1111','1001','0000'],
+  'X':['1001','0110','0110','0110','1001','0000'],
+  'Y':['1010','1010','0100','0100','0100','0000'],
+  'Z':['1111','0010','0100','1000','1111','0000'],
+  '0':['0110','1011','1101','1001','0110','0000'],
+  '1':['0100','1100','0100','0100','1110','0000'],
+  '2':['0110','1001','0010','0100','1111','0000'],
+  '3':['1110','0001','0110','0001','1110','0000'],
+  '4':['1001','1001','1111','0001','0001','0000'],
+  '5':['1111','1000','1110','0001','1110','0000'],
+  '6':['0110','1000','1110','1001','0110','0000'],
+  '7':['1111','0001','0010','0100','0100','0000'],
+  '8':['0110','1001','0110','1001','0110','0000'],
+  '9':['0110','1001','0111','0001','0110','0000'],
+  ' ':['0000','0000','0000','0000','0000','0000'],
+  '-':['0000','0000','1110','0000','0000','0000'],
+  '.':['0000','0000','0000','0000','0100','0000'],
+  "'":['0100','0100','0000','0000','0000','0000']
+};
+var BF_W = 4, BF_H = 6, BF_GAP = 1; // cell units per char
 
-  var imgd = tmpCtx.getImageData(0, 0, tw, th).data;
-  // top-left corner of text block in canvas coords
-  var tlx = centerX - tw / 2;
-  var tly = centerY - th / 2;
-
-  for (var py = 0; py < th; py++) {
-    for (var px = 0; px < tw; px++) {
-      var alpha = imgd[(py * tw + px) * 4 + 3];
-      if (alpha < 60) continue;
-      var canvasX = tlx + px;
-      var canvasY = tly + py;
-      var col = Math.floor((canvasX - ox) / CELL);
-      var row = Math.floor((canvasY - oy) / CELL);
-      if (col >= 0 && col < COLS && row >= 0 && row < ROWS) {
-        var gi = row * COLS + col;
-        if (grid[gi] === 0) grid[gi] = 1;
+function drawBitmapText(text, grid, COLS, ROWS, centerCol, baseRow, color) {
+  var chars = text.toUpperCase().split('');
+  var totalW = chars.length * (BF_W + BF_GAP) - BF_GAP;
+  var startCol = centerCol - Math.floor(totalW / 2);
+  chars.forEach(function(ch, ci) {
+    var glyph = BFONT[ch] || BFONT[' '];
+    var charCol = startCol + ci * (BF_W + BF_GAP);
+    for (var row = 0; row < BF_H; row++) {
+      var bits = glyph[row] || '0000';
+      for (var bit = 0; bit < BF_W; bit++) {
+        if (bits[bit] === '1') {
+          var gc = charCol + bit;
+          var gr = baseRow + row;
+          if (gc >= 0 && gc < COLS && gr >= 0 && gr < ROWS) {
+            if (grid[gr * COLS + gc] === 0) grid[gr * COLS + gc] = color || 1;
+          }
+        }
       }
     }
-  }
+  });
 }
 
 // ── Mark double border ring: outer ring (type 2) + inner ring (type 2), gap in between ──
@@ -450,17 +470,8 @@ function render(cityName, lat, lon, geojson) {
     }
   });
   lines = finalLines;
-  var fontSize = manualFontSize;
-  var lineHeight = fontSize + 12;
-  // Shrink only if overflows stamp width (actual measurement)
-  var _mc = document.createElement('canvas').getContext('2d');
-  while (fontSize > 14) {
-    _mc.font = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
-    var maxW = lines.reduce(function(m, l) { return Math.max(m, _mc.measureText(l).width); }, 0);
-    if (maxW <= stampW * 0.84) break;
-    fontSize -= 2;
-    lineHeight = fontSize + 12;
-  }
+  // bitmap font: single line, no font-size logic needed
+  var textZoneH = CELL * (4 + BF_H + 3); // border clearance + glyph rows + gap
 
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
@@ -487,7 +498,7 @@ function render(cityName, lat, lon, geojson) {
       });
 
       // Target area: below text zone (top ~130px of stamp), centered
-      var textZoneH = CELL * 6 + lineHeight + CELL * 3;
+      var textZoneH = CELL * (4 + BF_H + 3);
       var outlineAreaW = stampW * 0.72;
       var outlineAreaH = stampH - textZoneH - 20;
       var scX = outlineAreaW / (maxX - minX || 1);
@@ -516,20 +527,13 @@ function render(cityName, lat, lon, geojson) {
     }
   }
 
-  // ── B. Text: separate fine grid (TCELL=3px) ──
-  var textFont = '800 ' + fontSize + 'px "' + activeFont + '",sans-serif';
-  var textCX = ox + stampW / 2;
-  var totalH = lineHeight;
-  var textZoneH = CELL * 6 + lineHeight + CELL * 3; // border clearance + text + gap
-  // textStartY: center single line within top zone (inner border = CELL*4 = 16px)
-  var textStartY = oy + CELL * 5 + Math.round(fontSize * 0.8);
+  // ── B. Text: bitmap font, centered ──
+  var textCenterCol = Math.floor(COLS / 2);
+  var textBaseRow = 4; // rows from stamp top (clears inner border)
+  drawBitmapText(lines[0], grid, COLS, ROWS, textCenterCol, textBaseRow, 1);
 
-  // Text: single line, centered, onto main grid (CELL=4)
-  rasterizeText(lines[0], textFont, textCX, textStartY, grid, COLS, ROWS, ox, oy, '0.08em');
-
-  // Separator line just below text
-  var lineY = textStartY + lineHeight * 0.6 + 6;
-  var lineRow = Math.floor((lineY - oy) / CELL);
+  // Separator line just below bitmap text
+  var lineRow = textBaseRow + BF_H + 1;
   if(lineRow >= 0 && lineRow < ROWS){
     for(var lc = 2; lc < COLS-2; lc++){
       if(grid[lineRow * COLS + lc] === 0) grid[lineRow * COLS + lc] = 3;
