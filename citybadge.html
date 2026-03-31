@@ -252,8 +252,10 @@ function drawStampShape(x, y, w, h, cornerR, holeR) {
   ctx.closePath();
 }
 
-// ── Draw stitch-style stroke: 3 layers with dashed highlight for thread feel ──
-// ── Stitch unit drawing (cross or V) along a sampled path ──
+// ── Stitch unit drawing along a sampled path — with hand-stitch wobble ──
+// Simple deterministic pseudo-random
+function seededRand(seed){ return (Math.sin(seed*127.1+311.7)*43758.5453)%1; }
+
 function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
   if(pts.length<2) return;
   var total=0, dists=[0];
@@ -265,6 +267,7 @@ function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
   var s=stitchSize*0.5;
   ctx.strokeStyle=strokeStyle; ctx.lineWidth=lineWidth;
   ctx.lineJoin='round'; ctx.lineCap='round';
+  var idx=0;
   for(var d=gap/2;d<total;d+=gap){
     var seg=0;
     for(var k=1;k<dists.length;k++){if(dists[k]>=d){seg=k;break;}}
@@ -274,19 +277,25 @@ function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
     var tx=pts[seg][0]-pts[seg-1][0], ty=pts[seg][1]-pts[seg-1][1];
     var tlen=Math.hypot(tx,ty)||1; tx/=tlen; ty/=tlen;
     var nx=-ty, ny=tx;
+    // Hand wobble: slight random angle deviation + position jitter
+    var wobble=(seededRand(idx)*2-1)*0.18; // ±10° max
+    var cw=Math.cos(wobble), sw2=Math.sin(wobble);
+    var jtx=tx*cw-ty*sw2, jty=tx*sw2+ty*cw; // rotated tangent
+    var jnx=-jty, jny=jtx;
+    var jx=px+(seededRand(idx+0.3)*2-1)*0.8; // position jitter ±0.8px
+    var jy=py+(seededRand(idx+0.7)*2-1)*0.8;
+    idx++;
     ctx.beginPath();
     if(mode==='cross'){
-      // X cross aligned to path tangent + normal
-      ctx.moveTo(px+(-s*tx-s*nx), py+(-s*ty-s*ny));
-      ctx.lineTo(px+( s*tx+s*nx), py+( s*ty+s*ny));
-      ctx.moveTo(px+(-s*tx+s*nx), py+(-s*ty+s*ny));
-      ctx.lineTo(px+( s*tx-s*nx), py+( s*ty-s*ny));
+      ctx.moveTo(jx+(-s*jtx-s*jnx), jy+(-s*jty-s*jny));
+      ctx.lineTo(jx+( s*jtx+s*jnx), jy+( s*jty+s*jny));
+      ctx.moveTo(jx+(-s*jtx+s*jnx), jy+(-s*jty+s*jny));
+      ctx.lineTo(jx+( s*jtx-s*jnx), jy+( s*jty-s*jny));
     } else {
-      // V shape
-      ctx.moveTo(px+(-s*nx), py+(-s*ny));
-      ctx.lineTo(px, py+(s*0.4));
-      ctx.moveTo(px+( s*nx), py+( s*ny));
-      ctx.lineTo(px, py+(s*0.4));
+      ctx.moveTo(jx+(-s*jnx), jy+(-s*jny));
+      ctx.lineTo(jx, jy+(s*0.4));
+      ctx.moveTo(jx+( s*jnx), jy+( s*jny));
+      ctx.lineTo(jx, jy+(s*0.4));
     }
     ctx.stroke();
   }
@@ -346,15 +355,27 @@ function embroideryText(text, x, y, font, align) {
       if(a<60) continue;
       var px=ox+gx+grid/2, py=oy+gy+grid/2;
       var s=sz*0.5;
+      var jx = px + (seededRand(tidx)*2-1)*0.6;
+      var jy = py + (seededRand(tidx+0.5)*2-1)*0.6;
+      var ang = (seededRand(tidx+1.1)*2-1)*0.15;
+      var ca=Math.cos(ang), sa=Math.sin(ang);
       // shadow
       ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=sz*0.7;
       ctx.lineJoin='round'; ctx.lineCap='round';
-      ctx.beginPath(); ctx.moveTo(px-s+1,py-s+1.5); ctx.lineTo(px+s+1,py+s+1.5);
-      ctx.moveTo(px+s+1,py-s+1.5); ctx.lineTo(px-s+1,py+s+1.5); ctx.stroke();
-      // main white cross
+      ctx.beginPath();
+      ctx.moveTo(jx+(-s*ca-s*(-sa))+1, jy+(-s*sa-s*ca)+1.5);
+      ctx.lineTo(jx+( s*ca+s*(-sa))+1, jy+( s*sa+s*ca)+1.5);
+      ctx.moveTo(jx+( s*ca-s*(-sa))+1, jy+( s*sa-s*ca)+1.5);
+      ctx.lineTo(jx+(-s*ca+s*(-sa))+1, jy+(-s*sa+s*ca)+1.5);
+      ctx.stroke();
+      // main white cross with wobble
       ctx.strokeStyle='rgba(255,255,255,0.97)'; ctx.lineWidth=sz*0.45;
-      ctx.beginPath(); ctx.moveTo(px-s,py-s); ctx.lineTo(px+s,py+s);
-      ctx.moveTo(px+s,py-s); ctx.lineTo(px-s,py+s); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(jx+(-s*ca-s*(-sa)), jy+(-s*sa-s*ca));
+      ctx.lineTo(jx+( s*ca+s*(-sa)), jy+( s*sa+s*ca));
+      ctx.moveTo(jx+( s*ca-s*(-sa)), jy+( s*sa-s*ca));
+      ctx.lineTo(jx+(-s*ca+s*(-sa)), jy+(-s*sa+s*ca));
+      ctx.stroke();
     }
   }
 }
