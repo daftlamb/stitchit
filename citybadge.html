@@ -18,7 +18,7 @@ button:hover{background:#1a1020}
 button:disabled{opacity:.5;cursor:not-allowed}
 #status{font-size:12px;color:#706050;margin-bottom:20px;min-height:18px}
 #canvas-wrap{display:none;flex-direction:column;align-items:center;gap:16px}
-canvas{display:block;}
+canvas{display:block}
 .dl-btn{padding:9px 28px;background:#2a2030;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;font-family:'Outfit',sans-serif}
 .suggestions{position:absolute;top:100%;left:0;right:0;margin-top:4px;background:#faf8f4;border:1.5px solid #b0a898;border-radius:10px;box-shadow:0 6px 20px rgba(0,0,0,.12);max-height:200px;overflow-y:auto;z-index:10}
 .sug-item{padding:9px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #ece8e0;font-family:'Outfit',sans-serif}
@@ -79,8 +79,7 @@ function go(){
   sugBox.style.display='none';
   var name=cityInput.value.trim();
   if(!name){setStatus('Enter a city name.');return;}
-  genBtn.disabled=true;
-  setStatus('🔍 '+name+'…');
+  genBtn.disabled=true; setStatus('🔍 '+name+'…');
   fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(name)+'&format=json&limit=1&polygon_geojson=1',{headers:{'Accept-Language':'en'}})
   .then(function(r){return r.json();}).then(function(data){
     if(!data||!data[0]) throw new Error('City not found');
@@ -88,9 +87,7 @@ function go(){
     var label=d.display_name.split(',')[0].trim();
     var lat=parseFloat(d.lat),lon=parseFloat(d.lon);
     var geo=d.geojson||null;
-    if(geo&&(geo.type==='Polygon'||geo.type==='MultiPolygon')){
-      render(label,lat,lon,geo);genBtn.disabled=false;return;
-    }
+    if(geo&&(geo.type==='Polygon'||geo.type==='MultiPolygon')){render(label,lat,lon,geo);genBtn.disabled=false;return;}
     setStatus('🗺 Fetching boundary…');
     var oType=d.osm_type==='relation'?'relation':d.osm_type==='way'?'way':'node';
     return fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent('[out:json];'+oType+'('+d.osm_id+');out geom;'))
@@ -123,66 +120,105 @@ function pld(p,a,b){
   return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy);
 }
 
-function smoothPath(ring){
-  if(ring.length<3) return;
-  ctx.moveTo((ring[0][0]+ring[1][0])/2,(ring[0][1]+ring[1][1])/2);
+function buildSmooth(ring){
+  // Returns array of canvas path commands (for reuse)
+  var cmds=[];
+  cmds.push({t:'M',x:(ring[0][0]+ring[1][0])/2,y:(ring[0][1]+ring[1][1])/2});
   for(var i=1;i<ring.length-1;i++){
-    ctx.quadraticCurveTo(ring[i][0],ring[i][1],(ring[i][0]+ring[i+1][0])/2,(ring[i][1]+ring[i+1][1])/2);
+    cmds.push({t:'Q',cx:ring[i][0],cy:ring[i][1],x:(ring[i][0]+ring[i+1][0])/2,y:(ring[i][1]+ring[i+1][1])/2});
   }
-  ctx.quadraticCurveTo(ring[ring.length-1][0],ring[ring.length-1][1],(ring[ring.length-1][0]+ring[0][0])/2,(ring[ring.length-1][1]+ring[0][1])/2);
-  ctx.closePath();
+  cmds.push({t:'Q',cx:ring[ring.length-1][0],cy:ring[ring.length-1][1],x:(ring[ring.length-1][0]+ring[0][0])/2,y:(ring[ring.length-1][1]+ring[0][1])/2});
+  cmds.push({t:'Z'});
+  return cmds;
+}
+function applyPath(cmds){
+  ctx.beginPath();
+  cmds.forEach(function(c){
+    if(c.t==='M') ctx.moveTo(c.x,c.y);
+    else if(c.t==='Q') ctx.quadraticCurveTo(c.cx,c.cy,c.x,c.y);
+    else if(c.t==='Z') ctx.closePath();
+  });
 }
 
 function render(cityName,lat,lon,geojson){
   ctx.clearRect(0,0,W,H);
   var R=W/2-8;
-  var RIM=22;
+  var RIM=24;
   var IR=R-RIM;
+  var LW=7; // unified line weight (rim = outlines = arc lines)
 
-  // ── Drop shadow ──
+  // ── Shadow ──
   ctx.save();
-  ctx.shadowColor='rgba(0,0,0,0.5)'; ctx.shadowBlur=28; ctx.shadowOffsetY=7;
+  ctx.shadowColor='rgba(0,0,0,0.55)'; ctx.shadowBlur=32; ctx.shadowOffsetY=9;
   ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
   ctx.fillStyle='#888'; ctx.fill();
   ctx.restore();
 
-  // ── Silver rim ──
+  // ── Rim — strong silver bevel ──
   var rimG=ctx.createLinearGradient(CX-R,CY-R,CX+R,CY+R);
-  rimG.addColorStop(0.0,'#f4f2ee');
-  rimG.addColorStop(0.15,'#d8d4ce');
-  rimG.addColorStop(0.38,'#a0a0a0');
-  rimG.addColorStop(0.55,'#686460');
-  rimG.addColorStop(0.75,'#909090');
-  rimG.addColorStop(0.88,'#c8c4be');
-  rimG.addColorStop(1.0,'#f0eee8');
+  rimG.addColorStop(0.00,'#ffffff');
+  rimG.addColorStop(0.08,'#e8e4de');
+  rimG.addColorStop(0.22,'#b8b4ae');
+  rimG.addColorStop(0.42,'#787470');
+  rimG.addColorStop(0.58,'#606060');
+  rimG.addColorStop(0.72,'#989490');
+  rimG.addColorStop(0.88,'#d0ccc6');
+  rimG.addColorStop(1.00,'#f8f6f2');
   ctx.beginPath(); ctx.arc(CX,CY,R,0,Math.PI*2);
   ctx.fillStyle=rimG; ctx.fill();
 
-  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
-  ctx.strokeStyle='rgba(0,0,0,0.35)'; ctx.lineWidth=4; ctx.stroke();
-  ctx.beginPath(); ctx.arc(CX,CY,IR+2,0,Math.PI*2);
-  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1.5; ctx.stroke();
+  // Rim inner shadow groove
+  ctx.beginPath(); ctx.arc(CX,CY,IR+3,0,Math.PI*2);
+  ctx.strokeStyle='rgba(0,0,0,0.45)'; ctx.lineWidth=5; ctx.stroke();
+  // Rim inner highlight ridge
+  ctx.beginPath(); ctx.arc(CX,CY,IR+1,0,Math.PI*2);
+  ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=2; ctx.stroke();
 
-  // ── Dark metallic face ──
+  // ── Face — dark metallic with strong radial gradient ──
   ctx.save();
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  var faceG=ctx.createRadialGradient(CX-IR*0.25,CY-IR*0.3,0,CX,CY,IR*1.1);
-  faceG.addColorStop(0,'#6a6878');
-  faceG.addColorStop(0.4,'#484858');
-  faceG.addColorStop(1,'#282830');
+
+  var faceG=ctx.createRadialGradient(CX-IR*0.3,CY-IR*0.35,IR*0.05,CX+IR*0.1,CY+IR*0.1,IR*1.2);
+  faceG.addColorStop(0,'#808090');
+  faceG.addColorStop(0.25,'#585868');
+  faceG.addColorStop(0.6,'#383848');
+  faceG.addColorStop(1,'#1e1e28');
   ctx.fillStyle=faceG; ctx.fillRect(0,0,W,H);
-  // grain
-  for(var i=0;i<400;i++){
+
+  // Subtle metallic grain
+  for(var i=0;i<500;i++){
     var px=Math.random()*W,py=Math.random()*H;
-    if(Math.hypot(px-CX,py-CY)<IR){ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.025)+')';ctx.fillRect(px,py,1,1);}
+    if(Math.hypot(px-CX,py-CY)<IR){
+      ctx.fillStyle='rgba(255,255,255,'+(Math.random()*0.03)+')';
+      ctx.fillRect(px,py,1+(Math.random()>0.8?1:0),1);
+    }
   }
-  // glare
-  var glG=ctx.createRadialGradient(CX-IR*0.5,CY-IR*0.55,0,CX-IR*0.2,CY-IR*0.2,IR*0.9);
-  glG.addColorStop(0,'rgba(255,255,255,0.13)'); glG.addColorStop(1,'rgba(255,255,255,0)');
+
+  // Top-left glare blob
+  var glG=ctx.createRadialGradient(CX-IR*0.45,CY-IR*0.5,0,CX-IR*0.1,CY-IR*0.1,IR);
+  glG.addColorStop(0,'rgba(255,255,255,0.18)');
+  glG.addColorStop(0.4,'rgba(255,255,255,0.06)');
+  glG.addColorStop(1,'rgba(255,255,255,0)');
   ctx.fillStyle=glG; ctx.fillRect(0,0,W,H);
   ctx.restore();
 
-  // ── City outline — smooth, clipped, offset upper-left ──
+  // ── Compute band lines FIRST so outline clips above them ──
+  // Two parallel lines: slight left-to-right upward slant, like sketch
+  // Using straight diagonal lines (sketch shows nearly straight)
+  var slant=0.13; // rise per unit x (positive = goes up left-to-right)
+  var bandGap=28;
+  // Band center Y
+  var bandCY=CY+IR*0.44;
+  // line1 = top of band, line2 = bottom
+  var line1Y=bandCY-bandGap/2;
+  var line2Y=bandCY+bandGap/2;
+  // x extent beyond IR to ensure full coverage
+  var bx=IR+10;
+
+  function lineY(baseY,x){ return baseY-(x-CX)*slant; }
+
+  // ── City outline — clipped ABOVE band line1 ──
+  var shapeCmds=null;
   if(geojson){
     var ring=[];
     if(geojson.type==='Polygon') ring=geojson.coordinates[0];
@@ -195,100 +231,112 @@ function render(cityName,lat,lon,geojson){
       ring=dp(ring,0.05);
       var minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
       ring.forEach(function(p){if(p[0]<minX)minX=p[0];if(p[0]>maxX)maxX=p[0];if(p[1]<minY)minY=p[1];if(p[1]>maxY)maxY=p[1];});
-      var sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minY||1));
+      var sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minX||1));
+      sc=Math.min((IR*2.0)/(maxX-minX||1),(IR*2.0)/(maxY-minY||1));
       var midLng=(minX+maxX)/2,midLat=(minY+maxY)/2;
-      // Shift upper-left so lower-right crops out (band area stays clear)
-      var offX=-IR*0.18, offY=-IR*0.22;
+      var offX=-IR*0.15, offY=-IR*0.18;
       var mapped=ring.map(function(p){
         return[CX+offX+(p[0]-midLng)*sc, CY+offY-((p[1]-midLat)*sc)];
       });
+      shapeCmds=buildSmooth(mapped);
 
       ctx.save();
-      ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-      ctx.lineJoin='round'; ctx.lineCap='round';
+      // Clip to circle AND above band line1
+      ctx.beginPath();
+      ctx.arc(CX,CY,IR,0,Math.PI*2);
+      ctx.clip();
 
-      // shadow stroke
-      ctx.beginPath(); smoothPath(mapped);
-      ctx.strokeStyle='rgba(0,0,0,0.7)'; ctx.lineWidth=11; ctx.stroke();
-      // fill
-      ctx.beginPath(); smoothPath(mapped);
-      ctx.fillStyle='rgba(160,170,200,0.10)'; ctx.fill();
-      // silver gradient stroke
-      ctx.beginPath(); smoothPath(mapped);
+      // Second clip: above the top band line (polygon mask)
+      ctx.beginPath();
+      ctx.moveTo(CX-bx, lineY(line1Y,CX-bx));
+      ctx.lineTo(CX+bx, lineY(line1Y,CX+bx));
+      ctx.lineTo(CX+bx, CY-IR-10);
+      ctx.lineTo(CX-bx, CY-IR-10);
+      ctx.closePath();
+      ctx.clip();
+
+      // Random fill inside shape
+      applyPath(shapeCmds);
+      // Muted random color per render
+      var hue=(Math.abs(lat)*7+Math.abs(lon)*3)%360;
+      ctx.fillStyle='hsla('+hue+',18%,48%,0.22)';
+      ctx.fill();
+
+      // Shadow stroke (emboss depth)
+      applyPath(shapeCmds);
+      ctx.strokeStyle='rgba(0,0,0,0.65)';
+      ctx.lineWidth=LW+5; ctx.lineJoin='round'; ctx.lineCap='round'; ctx.stroke();
+
+      // Main silver stroke
+      applyPath(shapeCmds);
       var outG=ctx.createLinearGradient(CX-IR,CY-IR,CX+IR,CY+IR);
       outG.addColorStop(0,'rgba(255,255,255,0.95)');
-      outG.addColorStop(0.4,'rgba(210,206,198,0.88)');
-      outG.addColorStop(0.7,'rgba(150,146,140,0.75)');
-      outG.addColorStop(1,'rgba(230,228,222,0.92)');
-      ctx.strokeStyle=outG; ctx.lineWidth=7; ctx.stroke();
-      // highlight offset
-      ctx.save(); ctx.translate(-1.5,-2);
-      ctx.beginPath(); smoothPath(mapped);
-      ctx.strokeStyle='rgba(255,255,255,0.45)'; ctx.lineWidth=2.5; ctx.stroke();
+      outG.addColorStop(0.35,'rgba(215,210,202,0.9)');
+      outG.addColorStop(0.65,'rgba(155,150,144,0.8)');
+      outG.addColorStop(1,'rgba(235,232,226,0.92)');
+      ctx.strokeStyle=outG; ctx.lineWidth=LW; ctx.stroke();
+
+      // Inner highlight (concave glint)
+      ctx.save(); ctx.translate(-1.5,-2.0);
+      applyPath(shapeCmds);
+      ctx.strokeStyle='rgba(255,255,255,0.38)'; ctx.lineWidth=2; ctx.stroke();
       ctx.restore();
+
       ctx.restore();
     }
   }
 
-  // ── Two arc lines (lower-right area, following sketch) ──
-  // Band sits in lower portion, slanted with the circle
-  var band1Y=CY+IR*0.46;
-  var band2Y=CY+IR*0.64;
-  var arcR=IR*3.5; // large radius = subtle curve
-
+  // ── Two band lines — same LW as rim ──
   ctx.save();
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
+  ctx.lineJoin='round'; ctx.lineCap='butt';
 
-  function drawArcLine(y,lw){
-    var arcCY=y+arcR;
-    var halfAngle=Math.asin(Math.min(IR/arcR,0.9999));
-    ctx.beginPath();
-    ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    // silver gradient along line
-    var lg=ctx.createLinearGradient(CX-IR,y,CX+IR,y);
-    lg.addColorStop(0,'rgba(255,255,255,0)');
-    lg.addColorStop(0.15,'rgba(255,255,255,0.7)');
-    lg.addColorStop(0.5,'rgba(200,196,188,0.8)');
-    lg.addColorStop(0.85,'rgba(255,255,255,0.7)');
-    lg.addColorStop(1,'rgba(255,255,255,0)');
+  function drawBandLine(baseY){
+    var x0=CX-bx, y0=lineY(baseY,x0);
+    var x1=CX+bx, y1=lineY(baseY,x1);
     // shadow
-    ctx.strokeStyle='rgba(0,0,0,0.5)'; ctx.lineWidth=lw+3; ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    ctx.strokeStyle=lg; ctx.lineWidth=lw; ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0,y0+2); ctx.lineTo(x1,y1+2);
+    ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=LW+3; ctx.stroke();
+    // main gradient
+    var lg=ctx.createLinearGradient(x0,0,x1,0);
+    lg.addColorStop(0,'rgba(255,255,255,0)');
+    lg.addColorStop(0.1,'rgba(255,255,255,0.75)');
+    lg.addColorStop(0.5,'rgba(210,206,198,0.85)');
+    lg.addColorStop(0.9,'rgba(255,255,255,0.75)');
+    lg.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1);
+    ctx.strokeStyle=lg; ctx.lineWidth=LW; ctx.stroke();
+    // top highlight (concave inner glint)
+    ctx.beginPath(); ctx.moveTo(x0,y0-1.5); ctx.lineTo(x1,y1-1.5);
+    ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
   }
-  drawArcLine(band1Y,3);
-  drawArcLine(band2Y,3);
+  drawBandLine(line1Y);
+  drawBandLine(line2Y);
   ctx.restore();
 
-  // ── City name inside band, right-aligned ──
+  // ── City name — right-aligned between the two lines ──
   ctx.save();
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  var bandMidY=(band1Y+band2Y)/2+7;
-  var nameX=CX+IR*0.84;
-  var fontSize=cityName.length>12?17:cityName.length>8?21:25;
+  var nameX=CX+IR*0.85;
+  // Y center between the two lines at nameX
+  var nameY=(lineY(line1Y,nameX)+lineY(line2Y,nameX))/2;
+  var fontSize=cityName.length>12?17:cityName.length>8?20:24;
+  nameY+=fontSize*0.36; // baseline offset
   ctx.font='800 '+fontSize+'px Outfit,sans-serif';
-  ctx.textAlign='right'; ctx.letterSpacing='0.12em';
-  ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY+2);
-  ctx.fillStyle='rgba(255,255,255,0.12)'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY-1);
-  ctx.fillStyle='#f0eee8'; ctx.fillText(cityName.toUpperCase(),nameX,bandMidY);
-
-  // coordinates below name
-  var latS=Math.abs(lat).toFixed(1)+'°'+(lat>=0?'N':'S');
-  var lonS=Math.abs(lon).toFixed(1)+'°'+(lon>=0?'E':'W');
-  ctx.font='600 10px Outfit,sans-serif'; ctx.letterSpacing='0.08em';
-  ctx.fillStyle='rgba(0,0,0,0.4)'; ctx.fillText(latS+'  '+lonS,nameX,bandMidY+14);
-  ctx.fillStyle='rgba(200,196,188,0.65)'; ctx.fillText(latS+'  '+lonS,nameX,bandMidY+13);
+  ctx.textAlign='right'; ctx.letterSpacing='0.13em';
+  ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY+2);
+  ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY-1);
+  ctx.fillStyle='#f2f0ea'; ctx.fillText(cityName.toUpperCase(),nameX,nameY);
   ctx.restore();
 
-  // ── Rim top arc highlight ──
+  // ── Rim outer highlight arc (top-left) ──
   ctx.save();
-  var arcHG=ctx.createLinearGradient(CX-R,CY-R,CX+R*0.5,CY-R*0.5);
-  arcHG.addColorStop(0,'rgba(255,255,255,0.65)');
-  arcHG.addColorStop(0.5,'rgba(255,255,255,0.2)');
+  var arcHG=ctx.createLinearGradient(CX-R,CY-R,CX+R*0.3,CY-R*0.4);
+  arcHG.addColorStop(0,'rgba(255,255,255,0.8)');
+  arcHG.addColorStop(0.45,'rgba(255,255,255,0.25)');
   arcHG.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.beginPath(); ctx.arc(CX,CY,R-2,Math.PI*1.1,Math.PI*1.9);
-  ctx.strokeStyle=arcHG; ctx.lineWidth=3; ctx.stroke();
+  ctx.beginPath(); ctx.arc(CX,CY,R-LW/2,Math.PI*1.05,Math.PI*1.92);
+  ctx.strokeStyle=arcHG; ctx.lineWidth=4; ctx.stroke();
   ctx.restore();
 
   document.getElementById('canvas-wrap').style.display='flex';
