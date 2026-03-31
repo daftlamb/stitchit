@@ -246,7 +246,7 @@ function stitchAlongPath(pts, stitchSize, mode, strokeStyle, lineWidth){
     total+=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);
     dists.push(total);
   }
-  var gap=stitchSize*1.5;
+  var gap=stitchSize*1.1;
   var s=stitchSize*0.5;
   ctx.strokeStyle=strokeStyle; ctx.lineWidth=lineWidth;
   ctx.lineJoin='round'; ctx.lineCap='round';
@@ -306,7 +306,7 @@ function embroideryStroke(drawFn, lw) {
 
 function embroideryText(text, x, y, font, align) {
   // Render text to offscreen canvas, sample edge pixels, draw cross stitches
-  var sz = 5; // stitch size
+  var sz = 3; // stitch size — small for readable text
   var tmp = document.createElement('canvas');
   // measure text
   ctx.font = font; ctx.textAlign = align||'center';
@@ -352,7 +352,7 @@ function render(cityName, lat, lon, geojson) {
   var sx = margin, sy = margin;
   var sw = W - margin * 2, sh = H - margin * 2;
   var cornerR = 14;
-  var holeR = 14;
+  var holeR = 18;
 
   // ── Morandi color from lat/lon ──
   var idx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
@@ -480,11 +480,11 @@ function render(cityName, lat, lon, geojson) {
   drawStampShape(sx, sy, sw, sh, cornerR, holeR);
   ctx.clip();
 
-  var fi = 18; // inset amount
+  var fi = 22; // inset amount
   embroideryStroke(function() {
     ctx.beginPath();
     ctx.rect(sx + fi, sy + fi, sw - fi * 2, sh - fi * 2);
-  }, 1.8);
+  }, 3);
 
   ctx.restore();
 
