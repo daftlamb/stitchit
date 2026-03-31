@@ -330,7 +330,8 @@ var BFONT = {
   ' ':['0000','0000','0000','0000','0000','0000'],
   '-':['0000','0000','1110','0000','0000','0000'],
   '.':['0000','0000','0000','0000','0100','0000'],
-  "'":['0100','0100','0000','0000','0000','0000']
+  "'":['0100','0100','0000','0000','0000','0000'],
+  '°':['0110','0110','0000','0000','0000','0000']
 };
 var BF_W = 4, BF_H = 6, BF_GAP = 1; // cell units per char
 
@@ -544,6 +545,13 @@ function render(cityName, lat, lon, geojson) {
 
   // ── C. Rasterize border ring (2 cells thick) ──
   rasterizeBorder(grid, COLS, ROWS);
+
+  // ── E. Coordinate text at bottom ──
+  var absLat = Math.abs(lat).toFixed(1);
+  var absLon = Math.abs(lon).toFixed(1);
+  var coordStr = absLat + '°' + (lat >= 0 ? 'N' : 'S') + ' ' + absLon + '°' + (lon >= 0 ? 'E' : 'W');
+  var coordRow = ROWS - 4 - BF_H; // above inner border bottom
+  drawBitmapText(coordStr, grid, COLS, ROWS, Math.floor(COLS / 2), coordRow, 3);
 
   // ── D. Decorative lines (seeded, avoid text/map zone) ──
   var seed = Math.abs(Math.round(lat * 1000 + lon * 1000)) | 1;
