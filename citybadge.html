@@ -317,13 +317,13 @@ function render(cityName,lat,lon,geojson){
   // ── City name — right-aligned between the two lines ──
   ctx.save();
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
-  var nameX=CX+IR*0.85;
+  var nameX=CX;
   // Y center between the two lines at nameX
   var nameY=(lineY(line1Y,nameX)+lineY(line2Y,nameX))/2;
   var fontSize=cityName.length>12?20:cityName.length>8?24:28;
   nameY+=fontSize*0.36; // baseline offset
   ctx.font='800 '+fontSize+'px Outfit,sans-serif';
-  ctx.textAlign='right'; ctx.letterSpacing='0.13em';
+  ctx.textAlign='center'; ctx.letterSpacing='0.13em';
   ctx.fillStyle='rgba(0,0,0,0.6)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY+2);
   ctx.fillStyle='rgba(255,255,255,0.14)'; ctx.fillText(cityName.toUpperCase(),nameX,nameY-1);
   ctx.fillStyle='#f2f0ea'; ctx.fillText(cityName.toUpperCase(),nameX,nameY);
