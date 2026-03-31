@@ -291,30 +291,28 @@ function render(cityName,lat,lon,geojson){
   ctx.beginPath(); ctx.arc(CX,CY,IR,0,Math.PI*2); ctx.clip();
   ctx.lineJoin='round'; ctx.lineCap='butt';
 
-  // Arc line: large-radius arc curving upward (concave from below)
+  // Arc line using quadraticCurveTo — control point above center keeps ends parallel
   function drawBandLine(baseY){
-    var arcR=IR*8.0; // large radius = subtle upward curve
-    var arcCY=baseY+arcR; // arc center below the line
-    var halfAngle=Math.asin(Math.min(bx/arcR,0.9999));
+    var x0=CX-bx, x1=CX+bx;
+    var cpY=baseY-IR*0.06; // control point slightly above = upward bow
+    function stroke(dy, style, lw){
+      ctx.beginPath();
+      ctx.moveTo(x0, baseY+dy);
+      ctx.quadraticCurveTo(CX, cpY+dy, x1, baseY+dy);
+      ctx.strokeStyle=style; ctx.lineWidth=lw; ctx.stroke();
+    }
     // shadow
-    ctx.save(); ctx.translate(0,2.5);
-    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    ctx.strokeStyle='rgba(0,0,0,0.55)'; ctx.lineWidth=LW+3; ctx.stroke();
-    ctx.restore();
+    stroke(2.5, 'rgba(0,0,0,0.55)', LW+3);
     // main gradient
-    var lg=ctx.createLinearGradient(CX-bx,0,CX+bx,0);
+    var lg=ctx.createLinearGradient(x0,0,x1,0);
     lg.addColorStop(0,'rgba(255,255,255,0)');
     lg.addColorStop(0.1,'rgba(255,255,255,0.75)');
     lg.addColorStop(0.5,'rgba(210,206,198,0.85)');
     lg.addColorStop(0.9,'rgba(255,255,255,0.75)');
     lg.addColorStop(1,'rgba(255,255,255,0)');
-    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    ctx.strokeStyle=lg; ctx.lineWidth=LW; ctx.stroke();
+    stroke(0, lg, LW);
     // top highlight
-    ctx.save(); ctx.translate(0,-1.5);
-    ctx.beginPath(); ctx.arc(CX,arcCY,arcR,Math.PI*1.5-halfAngle,Math.PI*1.5+halfAngle);
-    ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1.5; ctx.stroke();
-    ctx.restore();
+    stroke(-1.5, 'rgba(255,255,255,0.35)', 1.5);
   }
   drawBandLine(line1Y);
   drawBandLine(line2Y);
