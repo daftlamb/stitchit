@@ -198,88 +198,42 @@ var morandiColors = [
   [300, 15, 62]
 ];
 
-// ── Correct stamp perforation: rectangle with semicircles BITTEN INWARD ──
-// Each perforation arc bows INTO the stamp body (inward notch)
+// ── Stamp perforation: draw rect path with inward semicircle notches ──
 function drawStampShape(x, y, w, h, cornerR, holeR) {
-  var spacing = holeR * 3.2;
-
-  function countHoles(len) {
-    var n = Math.floor((len - cornerR * 2) / spacing);
-    if (n < 1) n = 1;
-    return n;
-  }
-
-  var nTop    = countHoles(w);
-  var nBottom = countHoles(w);
-  var nLeft   = countHoles(h);
-  var nRight  = countHoles(h);
-
-  // Recompute actual spacing so holes are evenly centered
-  var spTop    = (w - cornerR * 2) / nTop;
-  var spBottom = (w - cornerR * 2) / nBottom;
-  var spLeft   = (h - cornerR * 2) / nLeft;
-  var spRight  = (h - cornerR * 2) / nRight;
-
+  var sp = holeR * 3.0; // spacing between hole centers
   ctx.beginPath();
-
-  // ── Start: top-left corner (after arc) → move right along top edge ──
-  // top-left corner arc
-  ctx.moveTo(x + cornerR, y + cornerR);
-  ctx.arc(x + cornerR, y + cornerR, cornerR, Math.PI, Math.PI * 1.5, false);
-  // now at (x+cornerR, y), heading right
-
-  // TOP edge — holes bitten downward (arc center on edge y=y, bows into stamp = downward)
-  for (var i = 0; i < nTop; i++) {
-    var hcx = x + cornerR + spTop * (i + 0.5);
-    ctx.lineTo(hcx - holeR, y);
-    // Arc bows INTO stamp (downward). Center at (hcx, y), from PI to 0, anticlockwise=false
-    // PI = left side of hole, 0 = right side, and the arc bulges upward by default.
-    // To bite INward (downward into stamp): go from 0 to PI anticlockwise (true)
-    ctx.arc(hcx, y, holeR, 0, Math.PI, true);
+  // Top edge: left→right, holes bite downward (center on top edge, arc goes PI→0 CW = upward bump outside = inward bite)
+  ctx.moveTo(x + holeR, y);
+  var nx = Math.round((w - holeR) / sp);
+  for (var i = 0; i < nx; i++) {
+    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
+    if (i > 0) ctx.lineTo(cx - holeR, y);
+    // bite inward (downward into stamp): center at (cx,y), arc from PI to 0 counterclockwise
+    ctx.arc(cx, y, holeR, Math.PI, 0, true);
   }
-  ctx.lineTo(x + w - cornerR, y);
-
-  // top-right corner arc
-  ctx.arc(x + w - cornerR, y + cornerR, cornerR, Math.PI * 1.5, 0, false);
-  // now at (x+w, y+cornerR), heading down
-
-  // RIGHT edge — holes bitten leftward (inward)
-  for (var i = 0; i < nRight; i++) {
-    var hcy = y + cornerR + spRight * (i + 0.5);
-    ctx.lineTo(x + w, hcy - holeR);
-    // Arc center at (x+w, hcy), bite inward (leftward): from -PI/2 to PI/2, anticlockwise
-    ctx.arc(x + w, hcy, holeR, Math.PI * 1.5, Math.PI * 0.5, true);
+  ctx.lineTo(x + w, y);
+  // Right edge: top→bottom, holes bite leftward
+  var ny = Math.round((h - holeR) / sp);
+  for (var i = 0; i < ny; i++) {
+    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
+    ctx.lineTo(x + w, cy - holeR);
+    ctx.arc(x + w, cy, holeR, Math.PI * 1.5, Math.PI * 0.5, true);
   }
-  ctx.lineTo(x + w, y + h - cornerR);
-
-  // bottom-right corner arc
-  ctx.arc(x + w - cornerR, y + h - cornerR, cornerR, 0, Math.PI * 0.5, false);
-  // now at (x+w-cornerR, y+h), heading left
-
-  // BOTTOM edge — holes bitten upward (inward), traverse right to left
-  for (var i = nBottom - 1; i >= 0; i--) {
-    var hcx = x + cornerR + spBottom * (i + 0.5);
-    ctx.lineTo(hcx + holeR, y + h);
-    // Arc center at (hcx, y+h), bite inward (upward): from 0 to PI, anticlockwise=false gives upward bump? 
-    // false = clockwise in canvas coords. Center at bottom edge, going left: from 0 to PI clockwise
-    ctx.arc(hcx, y + h, holeR, 0, Math.PI, false);
+  ctx.lineTo(x + w, y + h);
+  // Bottom edge: right→left, holes bite upward
+  for (var i = nx - 1; i >= 0; i--) {
+    var cx = x + holeR + i * ((w - holeR * 2) / (nx - 1 || 1));
+    ctx.lineTo(cx + holeR, y + h);
+    ctx.arc(cx, y + h, holeR, 0, Math.PI, true);
   }
-  ctx.lineTo(x + cornerR, y + h);
-
-  // bottom-left corner arc
-  ctx.arc(x + cornerR, y + h - cornerR, cornerR, Math.PI * 0.5, Math.PI, false);
-  // now at (x, y+h-cornerR), heading up
-
-  // LEFT edge — holes bitten rightward (inward), traverse bottom to top
-  for (var i = nLeft - 1; i >= 0; i--) {
-    var hcy = y + cornerR + spLeft * (i + 0.5);
-    ctx.lineTo(x, hcy + holeR);
-    // Arc center at (x, hcy), bite inward (rightward): from PI/2 to 3PI/2, anticlockwise=false
-    ctx.arc(x, hcy, holeR, Math.PI * 0.5, Math.PI * 1.5, false);
+  ctx.lineTo(x, y + h);
+  // Left edge: bottom→top, holes bite rightward
+  for (var i = ny - 1; i >= 0; i--) {
+    var cy = y + holeR + i * ((h - holeR * 2) / (ny - 1 || 1));
+    ctx.lineTo(x, cy + holeR);
+    ctx.arc(x, cy, holeR, Math.PI * 0.5, Math.PI * 1.5, true);
   }
-  ctx.lineTo(x, y + cornerR);
-
-  // back to start: close with top-left corner (already drawn above via moveTo arc)
+  ctx.lineTo(x, y);
   ctx.closePath();
 }
 
@@ -522,7 +476,7 @@ function render(cityName, lat, lon, geojson) {
       ctx.fill();
 
       // Stitch embroidery along outline points
-      stitchOutline(mapped, 7);
+      stitchOutline(mapped, 10);
 
       ctx.restore();
     }
