@@ -213,7 +213,7 @@ function render(cityName,lat,lon,geojson){
   var line1Y=bandCY-bandGap/2;
   var line2Y=bandCY+bandGap/2;
   // x extent beyond IR to ensure full coverage
-  var bx=IR+10;
+  var bx=IR*0.82;
 
   function lineY(baseY,x){ return baseY-(x-CX)*slant; }
 
