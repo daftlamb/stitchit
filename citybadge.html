@@ -68,6 +68,7 @@ document.querySelectorAll('.font-btn').forEach(function(btn) {
   });
 });
 var W = 520, H = 640;
+var stampW = 0, stampH = 0, stampOx = 0, stampOy = 0; // set in render, used by download
 var cityInput = document.getElementById('city-input');
 var sugBox = document.getElementById('suggestions');
 var genBtn = document.getElementById('gen-btn');
@@ -427,11 +428,12 @@ function render(cityName, lat, lon, geojson) {
   var grid = new Uint8Array(COLS * ROWS);
 
   // Effective stamp area snapped to cell grid
-  var stampW = COLS * CELL;
-  var stampH = ROWS * CELL;
+  stampW = COLS * CELL;
+  stampH = ROWS * CELL;
   // Stamp origin (top-left) shifted to center within margin
   var ox = sx + Math.floor((sw - stampW) / 2);
   var oy = sy + Math.floor((sh - stampH) / 2);
+  stampOx = ox; stampOy = oy; // expose to download handler
 
   // ── Morandi color ──
   var cidx = Math.abs(Math.round(lat + lon)) % morandiColors.length;
@@ -543,6 +545,28 @@ function render(cityName, lat, lon, geojson) {
   // ── C. Rasterize border ring (2 cells thick) ──
   rasterizeBorder(grid, COLS, ROWS);
 
+  // ── D. Decorative lines (seeded, avoid text/map zone) ──
+  var seed = Math.abs(Math.round(lat * 1000 + lon * 1000)) | 1;
+  function srand() { seed = (seed * 1664525 + 1013904223) & 0xffffffff; return (seed >>> 0) / 0xffffffff; }
+  var textEndRow = 8 + BF_H + 4 + 2;
+  var mapEndRow = ROWS - 8;
+  var numLines = 4 + Math.floor(srand() * 3); // 4-6 lines
+  for (var li = 0; li < numLines; li++) {
+    // place in bottom empty zone or side zone
+    var r0 = Math.floor(textEndRow + srand() * (mapEndRow - textEndRow));
+    var c0 = 6 + Math.floor(srand() * (COLS - 12));
+    var angle = srand() * Math.PI; // 0..180 degrees
+    var len = 4 + Math.floor(srand() * 8); // 4-11 cells
+    var dx = Math.cos(angle), dy = Math.sin(angle);
+    for (var s = 0; s < len * 2; s++) {
+      var gc = Math.round(c0 + dx * s * 0.5);
+      var gr = Math.round(r0 + dy * s * 0.5);
+      if (gc >= 5 && gc < COLS-5 && gr >= textEndRow && gr < mapEndRow) {
+        if (grid[gr * COLS + gc] === 0) grid[gr * COLS + gc] = 3;
+      }
+    }
+  }
+
   // ══════════════════════════════════════════
   // DRAW
   // ══════════════════════════════════════════
@@ -605,8 +629,26 @@ function render(cityName, lat, lon, geojson) {
 
 genBtn.addEventListener('click', go);
 document.getElementById('dl-btn').addEventListener('click', function() {
+  // Crop to stamp bounds with rounded corners
+  var off = document.createElement('canvas');
+  off.width = stampW; off.height = stampH;
+  var oc = off.getContext('2d');
+  // clip to rounded rect
+  oc.beginPath();
+  var r = 10;
+  oc.moveTo(r, 0); oc.lineTo(stampW-r, 0);
+  oc.arcTo(stampW, 0, stampW, r, r);
+  oc.lineTo(stampW, stampH-r);
+  oc.arcTo(stampW, stampH, stampW-r, stampH, r);
+  oc.lineTo(r, stampH);
+  oc.arcTo(0, stampH, 0, stampH-r, r);
+  oc.lineTo(0, r);
+  oc.arcTo(0, 0, r, 0, r);
+  oc.closePath();
+  oc.clip();
+  oc.drawImage(canvas, -stampOx, -stampOy);
   var a = document.createElement('a');
-  a.href = canvas.toDataURL('image/png');
+  a.href = off.toDataURL('image/png');
   a.download = 'citybadge.png';
   a.click();
 });
