@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>City Badge</title>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Press+Start+2P&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{background:#e8e4de;font:13px/1.5 'Outfit',system-ui,sans-serif;color:#1a1a1a;display:flex;flex-direction:column;align-items:center;padding:40px 20px;min-height:100vh}
@@ -416,8 +416,8 @@ function render(cityName, lat, lon, geojson) {
     }
   });
   lines = finalLines;
-  var fontSize = 34;
-  var lineHeight = fontSize + 14;
+  var fontSize = 26;
+  var lineHeight = fontSize + 10;
 
   // ── A. Rasterize city outline onto grid ──
   if (geojson) {
@@ -475,10 +475,10 @@ function render(cityName, lat, lon, geojson) {
 
   // ── B. Rasterize city name text ──
     // ── B. Rasterize city name text (lines/fontSize pre-computed above) ──
-  var textFont = '400 ' + fontSize + 'px "Press Start 2P",monospace';
+  var textFont = '800 ' + fontSize + 'px "Outfit",sans-serif';
   var textCX = ox + stampW / 2;
   var totalH = lines.length * lineHeight;
-  var textStartY = oy + 36;
+  var textStartY = oy + 52;
   lines.forEach(function(line, li) {
     rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
   });
