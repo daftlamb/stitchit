@@ -449,18 +449,38 @@ function render(cityName, lat, lon, geojson) {
 
   // ── B. Rasterize city name text ──
   var displayName = cityName.toUpperCase();
-  // Press Start 2P: char width ≈ fontSize * 0.7 (approx), fit within 85% of stamp width
-  var maxTextW = stampW * 0.85;
-  var fontSize = 40;
-  // Shrink until it fits: each char ≈ fontSize * 0.75 wide including spacing
-  while (fontSize > 14 && displayName.length * fontSize * 0.75 > maxTextW) fontSize -= 2;
+  // Wrap at 10 chars: split on space near midpoint, or force-split
+  var WRAP = 10;
+  var lines = [];
+  if (displayName.length > WRAP) {
+    // Try to split on a space
+    var mid = Math.floor(displayName.length / 2);
+    var spaceIdx = -1;
+    for (var si = 0; si < displayName.length; si++) {
+      if (displayName[si] === ' ' && Math.abs(si - mid) < Math.abs(spaceIdx - mid)) spaceIdx = si;
+    }
+    if (spaceIdx > 0) {
+      lines = [displayName.slice(0, spaceIdx).trim(), displayName.slice(spaceIdx+1).trim()];
+    } else {
+      // Force split at midpoint
+      lines = [displayName.slice(0, mid), displayName.slice(mid)];
+    }
+  } else {
+    lines = [displayName];
+  }
+
+  var fontSize = 34;
   var textFont = '400 ' + fontSize + 'px "Press Start 2P",monospace';
   var textCX = ox + stampW / 2;
-  var textCY = oy + 72;
-  rasterizeText(displayName, textFont, textCX, textCY, grid, COLS, ROWS, ox, oy, '0.18em');
+  var lineHeight = fontSize + 14; // px between lines
+  var totalH = lines.length * lineHeight;
+  var textStartY = oy + 58 - (lines.length > 1 ? lineHeight/2 : 0);
+  lines.forEach(function(line, li) {
+    rasterizeText(line, textFont, textCX, textStartY + li * lineHeight, grid, COLS, ROWS, ox, oy, '0.1em');
+  });
 
-  // ── Separator line below city name (full width, 1 cell thick) ──
-  var lineY = oy + 110; // pixels below stamp top
+  // Separator line below text block
+  var lineY = textStartY + totalH + 8;
   var lineRow = Math.floor((lineY - oy) / CELL);
   if(lineRow >= 0 && lineRow < ROWS){
     for(var lc = 2; lc < COLS-2; lc++){
@@ -469,7 +489,7 @@ function render(cityName, lat, lon, geojson) {
   }
 
   // ── C. Rasterize border ring (2 cells thick) ──
-  rasterizeBorder(grid, COLS, ROWS, 2);
+  rasterizeBorder(grid, COLS, ROWS);
 
   // ══════════════════════════════════════════
   // DRAW
